@@ -25,6 +25,10 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] configuration files per-project/workspace (similar to `.vscode/settings.json`), for quickly starting the right EOL, baud, etc. for an embedded systems projects
 [ ] log sessions to text file
 [ ] log sessions to JSON/YAML/other files
+[ ] send a file
+[ ] encoding
+[ ] filters
+[ ] send the `Ctrl+]`, etc. control characters to the remote
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
