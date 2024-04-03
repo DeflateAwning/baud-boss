@@ -9,12 +9,12 @@ use serialport5::SerialPort;
 
 use std::io::{Read, Write};
 
+// TODO: consider converting to: https://rust-cli-recommendations.sunshowers.io/handling-arguments.html
+
 /// A feature-rich UART serial terminal, written in Rust
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -22,6 +22,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Opens the serial port for communication
+    #[clap(alias("o"))]
     OpenPort {
         /// Baud rate for serial communication
         #[arg(short = 'b', long, default_value_t = 115200)]
@@ -33,6 +34,7 @@ enum Commands {
     },
 
     /// List available serial ports, then exit
+    #[clap(alias("l"), alias("ls"))]
     ListPorts,
 }
 
@@ -47,7 +49,7 @@ fn main() {
             open_serial_port_and_read(baud_rate, serial_port);
         }
         None => {
-            println!("No command provided. Exiting...");
+            println!("No command provided. One day, this will prompt for settings...");
         }
     }
 }
@@ -76,7 +78,15 @@ fn open_serial_port_and_read(baud_rate: u32, serial_port: String) {
 
     println!("Opened serial port '{}' at {} baud.", serial_port, baud_rate);
 
-    // Read from the serial port
+    // Flush the serial port buffer
+    match port.flush() {
+        Ok(_) => { }
+        Err(e) => {
+            eprintln!("Error flushing serial port buffer: {}", e);
+        }
+    }
+
+    // Read from the serial port continuously
     loop {
         let mut serial_buf: Vec<u8> = vec![0; 32];
         let val = port.read(serial_buf.as_mut_slice());
@@ -99,5 +109,4 @@ fn open_serial_port_and_read(baud_rate: u32, serial_port: String) {
             }
         }
     }
-    // Do something with the serial port here
 }

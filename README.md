@@ -22,6 +22,9 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] installable via `cargo` and crates.io
 [ ] show incoming non-printable bytes (or all bytes) as hex
 [ ] send hex as raw bytes
+[ ] configuration files per-project/workspace (similar to `.vscode/settings.json`), for quickly starting the right EOL, baud, etc. for an embedded systems projects
+[ ] log sessions to text file
+[ ] log sessions to JSON/YAML/other files
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
