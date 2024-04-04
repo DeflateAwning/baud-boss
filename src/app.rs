@@ -1,4 +1,4 @@
-use ratatui::widgets::ListState;
+use ratatui::widgets::{ListState, ScrollbarState};
 use crate::tui_list_state_tracker::ListStateTracker;
 
 // TODO: rename to AppScreen
@@ -26,6 +26,11 @@ pub struct App {
     pub main_incoming_serial_data: String,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
+
+    pub main_screen_vertical_scroll_state: ScrollbarState,
+    pub main_screen_horizontal_scroll_state: ScrollbarState,
+    pub main_screen_vertical_scroll_val: usize,
+    pub main_screen_horizontal_scroll_val: usize,
 }
 
 impl App {
@@ -51,6 +56,11 @@ impl App {
             main_incoming_serial_data: String::new(),
 
             bound_serial_port: None,
+
+            main_screen_vertical_scroll_state: ScrollbarState::default(),
+            main_screen_horizontal_scroll_state: ScrollbarState::default(),
+            main_screen_vertical_scroll_val: 0,
+            main_screen_horizontal_scroll_val: 0,
         }
     }
     

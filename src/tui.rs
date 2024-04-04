@@ -1,19 +1,22 @@
 use crate::app::{App, CurrentScreen};
 use crate::tui_list_state_tracker::ListStateTracker;
 
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::Text;
-use ratatui::widgets::{List, ListItem, Paragraph};
+use ratatui::symbols::scrollbar;
+use ratatui::text::{Line, Masked, Text};
+use ratatui::widgets::{List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use ratatui::widgets::{Block, Borders, Wrap};
 use ratatui::Frame;
 use ratatui::text::{Span};
 
+// traits
+use ratatui::style::Stylize;
 
 
 
-pub fn ui(f: &mut Frame, app: &mut App) {
-    let chunks = Layout::default()
+pub fn ui(frame: &mut Frame, app: &mut App) {
+    let general_chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints(
@@ -24,17 +27,10 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             ]
             .as_ref(),
         )
-        .split(f.size());
+        .split(frame.size());
 
     let title = format!("Baud Boss Serial Terminal v{}", env!("CARGO_PKG_VERSION"));
     let title = Text::styled(title, Style::default().fg(Color::Yellow));
-    
-
-    // TODO: update global keybinding coloring, update based on which screen is active
-    let paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
-        .block(Block::default().borders(Borders::ALL).title("Help"))
-        .wrap(Wrap { trim: true });
-    f.render_widget(paragraph, chunks[2]);
 
     match app.current_screen {
         CurrentScreen::PickSerialPort => {
@@ -78,8 +74,15 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD))
                 .highlight_symbol("> "); // Optional: indicates the selected item
             
-            f.render_widget(title, chunks[0]);
-            f.render_stateful_widget(port_select_block, chunks[1], &mut app.pick_serial_port_list_state.state);
+            frame.render_widget(title, general_chunks[0]);
+            frame.render_stateful_widget(port_select_block, general_chunks[1], &mut app.pick_serial_port_list_state.state);
+
+
+            // TODO: update keybinding coloring, update based on which screen is active
+            let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
+                .block(Block::default().borders(Borders::ALL).title("Help"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(help_paragraph, general_chunks[2]);
         },
         CurrentScreen::PickBaudRate => {
             let select_baud_rate_title_text: String = match app.selected_serial_port.clone() {
@@ -98,16 +101,80 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 .block(Block::default().borders(Borders::ALL).title(select_baud_rate_title_text))
                 .wrap(Wrap { trim: true });
 
-            f.render_widget(title, chunks[0]);
-            f.render_widget(paragraph, chunks[1]);
+            frame.render_widget(title, general_chunks[0]);
+            frame.render_widget(paragraph, general_chunks[1]);
+
+            // TODO: update keybinding coloring, update based on which screen is active
+            let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
+                .block(Block::default().borders(Borders::ALL).title("Help"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(help_paragraph, general_chunks[2]);
         },
         CurrentScreen::Main => {
-            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
-            let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
-                .block(Block::default().borders(Borders::ALL).title(main_title_text))
-                .wrap(Wrap { trim: true });
-            f.render_widget(paragraph, chunks[1]);
+            // TODO: add option to show hex-and-ascii side-by-side
+            let size = frame.size();
+            let main_screen_chunks = Layout::vertical([
+                Constraint::Length(3),
+                Constraint::Min(0),
+                Constraint::Length(3),
+            ])
+            .split(size);
 
+            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
+            // let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
+            //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
+            //     .wrap(Wrap { trim: true });
+
+
+            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
+            let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
+            let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
+
+            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
+            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
+        
+            let title = Block::new()
+                .title_alignment(Alignment::Center)
+                .title("Use h j k l or ◄ ▲ ▼ ► to scroll ".bold());
+            frame.render_widget(title, main_screen_chunks[0]);
+
+            // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
+            // TODO: prevent scrolling if there's no need to scroll (currently lets you scroll the content fully off the screen)
+            // TODO: add config option for wrapping text
+        
+            let paragraph = Paragraph::new(incoming_data_lines.clone())
+                // .gray()
+                .block(Block::default().borders(Borders::ALL).title(main_title_text.bold()))
+                .scroll((
+                    app.main_screen_vertical_scroll_val as u16,
+                    app.main_screen_horizontal_scroll_val as u16));
+
+            frame.render_widget(paragraph, main_screen_chunks[1]);
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("↑")).end_symbol(Some("↓"))
+                    .thumb_symbol("░"), // TOOD: check veritcal thumb symbol
+                main_screen_chunks[1],
+                &mut app.main_screen_vertical_scroll_state,
+            );
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::HorizontalBottom)
+                    .begin_symbol(Some("◄")).end_symbol(Some("►"))
+                    .thumb_symbol("░"),
+                main_screen_chunks[1].inner(&Margin {
+                    vertical: 0,
+                    horizontal: 1,
+                }),
+                &mut app.main_screen_horizontal_scroll_state,
+            );
+
+
+            // TODO: update keybinding coloring, update based on which screen is active
+            let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Type to prep data | Enter to send")
+                .block(Block::default().borders(Borders::ALL).title("Help"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(help_paragraph, main_screen_chunks[2]);
+        
             // TODO: render input box
         },
         CurrentScreen::Config1 => {
@@ -115,16 +182,29 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 .block(Block::default().borders(Borders::ALL).title("Config 1"))
                 .wrap(Wrap { trim: true });
 
-            f.render_widget(title, chunks[0]);
-            f.render_widget(paragraph, chunks[1]);
+            frame.render_widget(title, general_chunks[0]);
+            frame.render_widget(paragraph, general_chunks[1]);
+
+
+            // TODO: update keybinding coloring, update based on which screen is active
+            let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
+                .block(Block::default().borders(Borders::ALL).title("Help"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(help_paragraph, general_chunks[2]);
         },
         CurrentScreen::Help => {
             let paragraph = Paragraph::new(Text::raw("Help Screen (NOT IMPLEMENTED):"))
                 .block(Block::default().borders(Borders::ALL).title("Help"))
                 .wrap(Wrap { trim: true });
 
-            f.render_widget(title, chunks[0]);
-            f.render_widget(paragraph, chunks[1]);
+            frame.render_widget(title, general_chunks[0]);
+            frame.render_widget(paragraph, general_chunks[1]);
+
+            // TODO: update keybinding coloring, update based on which screen is active
+            let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
+                .block(Block::default().borders(Borders::ALL).title("Help"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(help_paragraph, general_chunks[2]);
         },
     }
 }

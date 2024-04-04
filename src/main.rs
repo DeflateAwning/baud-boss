@@ -243,6 +243,38 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
             }
 
             match key.code {
+                // TODO: change scroll bindings
+                // TODO: check scroll repeat rate
+                // TODO: add mouse binding
+                // Scroll array bindings
+                KeyCode::Char('j') | KeyCode::Down => {
+                    app.main_screen_vertical_scroll_val = 
+                        app.main_screen_vertical_scroll_val.saturating_add(1);
+                    app.main_screen_vertical_scroll_state =
+                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    app.main_screen_vertical_scroll_val = 
+                        app.main_screen_vertical_scroll_val.saturating_sub(1);
+                    app.main_screen_vertical_scroll_state =
+                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                }
+                KeyCode::Char('h') | KeyCode::Left => {
+                    app.main_screen_horizontal_scroll_val = 
+                        app.main_screen_horizontal_scroll_val.saturating_sub(1);
+                    app.main_screen_horizontal_scroll_state =
+                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                }
+                KeyCode::Char('l') | KeyCode::Right => {
+                    app.main_screen_horizontal_scroll_val = 
+                        app.main_screen_horizontal_scroll_val.saturating_add(1);
+                    app.main_screen_horizontal_scroll_state =
+                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                }
+                
+                // TODO: home/end/pageup/pagedown
+
+
                 KeyCode::Enter => {
                     // TODO: send the data
                 }

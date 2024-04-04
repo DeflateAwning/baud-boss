@@ -32,6 +32,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] send the `Ctrl+]`, etc. control characters to the remote
 [ ] horizontal scrolling of output window
 [ ] select from known common baud rates
+[ ] scrolling, scroll bar
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
