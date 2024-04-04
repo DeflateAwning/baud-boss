@@ -205,6 +205,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                         }
                     }
                 }
+                // TODO: add arrow keys to move cursor
                 KeyCode::Backspace => {
                     app.pick_baud_rate_input_field.pop();
                 }
@@ -259,9 +260,38 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                     }
 
                     // TODO: left and right arrow keys to move the cursor
+                    ModifierWrapper::Normal(KeyCode::Left) => {
+                        // move the cursor left
+                        match app.main_input_cursor_position {
+                            Some(pos) => {
+                                if pos > 0 {
+                                    app.main_input_cursor_position = Some(pos - 1);
+                                }
+                            }
+                            None => {
+                                app.main_input_cursor_position = Some(app.main_input.len() - 1);
+                            }
+                        }
+                    }
+                    ModifierWrapper::Normal(KeyCode::Right) => {
+                        // move the cursor right
+                        match app.main_input_cursor_position {
+                            Some(pos) => {
+                                if pos < (app.main_input.len() - 1) {
+                                    app.main_input_cursor_position = Some(pos + 1);
+                                }
+                                else {
+                                    app.main_input_cursor_position = None;
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                    // TODO: home and end keys to move the cursor
 
                     ModifierWrapper::Normal(KeyCode::Up) => {
                         // go back in the send history
+                        app.main_input_cursor_position = None;
                         match app.main_input_send_history_index {
                             Some(index) => {
                                 if index > 0 {
@@ -270,13 +300,16 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                                 }
                             }
                             None => {
-                                app.main_input_send_history_index = Some(app.main_input_send_history.len() - 1);
-                                app.main_input_typing_in_progress_but_not_sent = Some(app.main_input.clone());
-                                app.main_input = app.main_input_send_history.last().unwrap_or(&String::new()).clone();
+                                if app.main_input_send_history.len() > 0 {
+                                    app.main_input_send_history_index = Some(app.main_input_send_history.len() - 1);
+                                    app.main_input_typing_in_progress_but_not_sent = Some(app.main_input.clone());
+                                    app.main_input = app.main_input_send_history.last().unwrap_or(&String::new()).clone();
+                                }
                             }
                         }
                     }
                     ModifierWrapper::Normal(KeyCode::Down) => {
+                        app.main_input_cursor_position = None;
                         // go forward in the send history
                         match app.main_input_send_history_index {
                             Some(index) => {
@@ -303,7 +336,15 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                         app.main_screen_active_region_is_input = false;
                     }
                     ModifierWrapper::Normal(KeyCode::Char(c)) => {
-                        app.main_input.push(c);
+                        match app.main_input_cursor_position {
+                            Some(pos) => {
+                                app.main_input.insert(pos, c);
+                                app.main_input_cursor_position = Some(pos + 1);
+                            }
+                            None => {
+                                app.main_input.push(c);
+                            }
+                        }
                     }
                     ModifierWrapper::Normal(KeyCode::Backspace) => {
                         app.main_input.pop();
@@ -315,7 +356,9 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                                 match port.write(data) {
                                     Ok(_) => {
                                         app.main_input_send_history.push(app.main_input.clone());
+                                        app.main_input_send_history_index = None;
                                         app.main_input.clear();
+                                        app.main_input_cursor_position = None;
                                     }
                                     Err(e) => {
                                         // TODO: handle this disconnect situation better - probably go back to port selection screen

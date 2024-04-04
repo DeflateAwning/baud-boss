@@ -26,6 +26,7 @@ pub struct App {
     pub main_input_send_history: Vec<String>,
     pub main_input_send_history_index: Option<usize>,
     pub main_input_typing_in_progress_but_not_sent: Option<String>, // so that if you look through the send history, you can still send the current in-progress message
+    pub main_input_cursor_position: Option<usize>,
     pub main_incoming_serial_data: String,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
@@ -60,6 +61,7 @@ impl App {
             main_input_send_history: Vec::new(),
             main_input_send_history_index: None,
             main_input_typing_in_progress_but_not_sent: None,
+            main_input_cursor_position: None,
             main_incoming_serial_data: String::new(),
 
             bound_serial_port: None,

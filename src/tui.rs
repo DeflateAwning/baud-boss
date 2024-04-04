@@ -96,7 +96,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             };
             
             // TODO: make the baud rate selection show a greyed-out default value, which is selectable with 'enter'
-            let baud_input_text = format!("Value: {}{} bits per second (baud)", app.pick_baud_rate_input_field, get_blinking_cursor_state());
+            let baud_input_text = format!("Value: {}{} bits per second (baud)", app.pick_baud_rate_input_field, get_blinking_cursor(' ', '_'));
             let baud_input_paragraph = Paragraph::new(Text::raw(baud_input_text))
                 .block(Block::default().borders(Borders::ALL).title(select_baud_rate_title_text))
                 .wrap(Wrap { trim: true });
@@ -134,10 +134,20 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len()).position(1000000);
             app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
             
-            let send_input_text = format!("{}{}", app.main_input, get_blinking_cursor_state());
+            let send_input_text = match app.main_input_cursor_position {
+                Some(cursor_position) => {
+                    let mut input_text = app.main_input.clone();
+                    // let debug_cursor_position_as_char = cursor_position.to_string().chars().nth(0).unwrap();
+                    input_text.insert(cursor_position, get_blinking_cursor('|', ' '));
+                    input_text
+                },
+                None => {
+                    format!("{}{}", app.main_input, get_blinking_cursor('_', ' '))
+                }
+            };
             let send_input_paragraph = Paragraph::new(Text::raw(send_input_text))
                 .block(Block::default().borders(Borders::ALL).title("Send Data"))
-                .wrap(Wrap { trim: true });
+                .wrap(Wrap { trim: false }); // TODO: if showing history, show the negative index of the history in the "Send Data" text
             frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
@@ -211,14 +221,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn get_blinking_cursor_state() -> String {
+fn get_blinking_cursor(on_symbol: char, off_symbol: char) -> char {
     let now = std::time::SystemTime::now();
     let since_the_epoch = now.duration_since(std::time::UNIX_EPOCH).expect("Time went backwards");
     let since_the_epoch = since_the_epoch.as_millis();
     if since_the_epoch % 1000 < 500 {
-        return String::from("_");
+        on_symbol
     }
     else {
-        return String::from(" ");
+        off_symbol
     }
 }
