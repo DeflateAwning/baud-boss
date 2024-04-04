@@ -47,7 +47,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             let list_items_strs: Vec<String> = match &ports {
                 Ok(ports) => {
                     if ports.is_empty() {
-                        vec![String::from("No serial ports found!")] // TODO: make this not selectable
+                        vec![String::from("No serial ports found!")] // FIXME: make this not selectable
                     }
                     else {
                         ports.iter().map(|port| {
@@ -55,12 +55,12 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                         }).collect()
                     }
                 },
-                Err(e) => vec![format!("Error finding serial ports ({})!", e)] // TODO: make this not selectable
+                Err(e) => vec![format!("Error finding serial ports ({})!", e)] // FIXME: make this not selectable
             };
 
             app.pick_serial_port_list_state.update_items(list_items_strs.clone());
             
-            // let display_items: Vec<ListItem> = app.pick_serial_port_list_state.get_as_list_items().clone(); // TODO: make this work
+            // let display_items: Vec<ListItem> = app.pick_serial_port_list_state.get_as_list_items().clone(); // TODO: make this work (it'd be more elegant)
             let display_items: Vec<ListItem> = app.pick_serial_port_list_state.items.iter().map(|port| {
                 ListItem::new(Span::raw(format!("{}", port)))
             }).collect();
@@ -88,7 +88,9 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 }
             };
             
-            let paragraph = Paragraph::new(Text::raw("TODO: type the port here"))
+            // TODO: make the baud rate selection show a greyed-out default value, which is selectable with 'enter'
+            let baud_input_text = format!("Value: {}{} bits per second (baud)", app.pick_baud_rate_input_field, get_blinking_cursor_state());
+            let paragraph = Paragraph::new(Text::raw(baud_input_text))
                 .block(Block::default().borders(Borders::ALL).title(select_baud_rate_title_text))
                 .wrap(Wrap { trim: true });
 
@@ -96,8 +98,9 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             f.render_widget(paragraph, chunks[1]);
         },
         CurrentScreen::Main => {
-            let paragraph = Paragraph::new(Text::raw("Main Screen (NOT IMPLEMENTED):"))
-                .block(Block::default().borders(Borders::ALL).title("Main"))
+            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate);
+            let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
+                .block(Block::default().borders(Borders::ALL).title(main_title_text))
                 .wrap(Wrap { trim: true });
             f.render_widget(paragraph, chunks[1]);
 
@@ -119,5 +122,17 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             f.render_widget(title, chunks[0]);
             f.render_widget(paragraph, chunks[1]);
         },
+    }
+}
+
+fn get_blinking_cursor_state() -> String {
+    let now = std::time::SystemTime::now();
+    let since_the_epoch = now.duration_since(std::time::UNIX_EPOCH).expect("Time went backwards");
+    let since_the_epoch = since_the_epoch.as_millis();
+    if since_the_epoch % 1000 < 500 {
+        return String::from("_");
+    }
+    else {
+        return String::from(" ");
     }
 }

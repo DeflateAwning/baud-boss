@@ -110,13 +110,47 @@ fn run_app<B: Backend>(
                     if is_keypress_quit_event(key, true) {
                         break;
                     }
+                    match extract_modified_key(key) {
+                        ModifierWrapper::Control(KeyCode::Backspace) | ModifierWrapper::Control(KeyCode::Char('h')) => {
+                            // Ctrl+Backspace should clear the field; it comes in as Ctrl+H sometimes
+                            app.pick_baud_rate_input_field.clear();
+                        },
+                        _ => { }
+                    }
                     match key.code {
                         KeyCode::Char('b') => {
                             // go back
                             app.current_screen = CurrentScreen::PickSerialPort;
                         }
+                        KeyCode::Char('c') => {
+                            // clear
+                            app.pick_baud_rate_input_field.clear();
+                        }
+                        KeyCode::Char(c) => {
+                            if c.is_ascii_digit() {
+                                // silly check to avoid writing a number with a leading zero
+                                if (app.pick_baud_rate_input_field.len() > 0)
+                                        || (app.pick_baud_rate_input_field.len() == 0 && c != '0'){
+                                    app.pick_baud_rate_input_field.push(c);
+                                }
+                            }
+                        }
+                        KeyCode::Backspace => {
+                            app.pick_baud_rate_input_field.pop();
+                        }
                         KeyCode::Enter => {
-                            app.current_screen = CurrentScreen::Main;
+                            // store the baud rate
+                            let baud_rate = app.pick_baud_rate_input_field.parse::<u32>();
+                            match baud_rate {
+                                Ok(rate) => {
+                                    app.app_config.baud_rate = rate;
+                                    app.current_screen = CurrentScreen::Main;
+                                }
+                                Err(_) => {
+                                    // this shouldn't really happen, just clear the field and let them try again though
+                                    app.pick_baud_rate_input_field.clear();
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -125,6 +159,16 @@ fn run_app<B: Backend>(
                 CurrentScreen::Main => {
                     if is_keypress_quit_event(key, false) { // NOTE: don't quit on 'q'
                         break;
+                    }
+
+                    match extract_modified_key(key) {
+                        ModifierWrapper::Control(KeyCode::Char('h')) => {
+                            app.current_screen = CurrentScreen::Help;
+                        }
+                        ModifierWrapper::Control(KeyCode::Char('b')) => {
+                            app.current_screen = CurrentScreen::PickBaudRate;
+                        }
+                        _ => {}
                     }
 
                     match key.code {

@@ -14,6 +14,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 ## Upcoming Features
 [ ] send messages character-by-character
 [ ] send messages by preparing them in an input box
+[ ] pause output
 [ ] configurable EOL behaviour (TX)
 [ ] configurable EOL behaviour (RX)
 [ ] UI for selecting options, instead of requiring they be supplied by CLI args
@@ -30,6 +31,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] filters
 [ ] send the `Ctrl+]`, etc. control characters to the remote
 [ ] horizontal scrolling of output window
+[ ] select from known common baud rates
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)

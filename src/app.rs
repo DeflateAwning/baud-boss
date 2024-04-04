@@ -16,9 +16,12 @@ pub struct App {
     pub pick_serial_port_list_state: ListStateTracker,
     pub selected_serial_port: Option<String>, // not in config as it's emphemeral
 
+    pub pick_baud_rate_input_field: String,
+
     // TODO: pick_baud_rate_active_list options
 
     pub main_input: String, // TODO: maybe make this a Vec<u8> instead
+    pub main_incoming_serial_data: String,
 }
 
 impl App {
@@ -26,27 +29,28 @@ impl App {
         Self {
             current_screen: CurrentScreen::PickSerialPort,
             app_config: AppConfig {
-                serial_port: String::new(),
                 baud_rate: 115200,
                 end_of_line: String::from("\n"),
                 data_bits: 8,
                 parity: serialport5::Parity::None,
                 stop_bits: serialport5::StopBits::One,
 
-                line_wrap: true,
             },
 
             pick_serial_port_list_state: ListStateTracker::default(),
             selected_serial_port: None,
 
+            pick_baud_rate_input_field: String::new(),
+
             main_input: String::new(),
+            main_incoming_serial_data: String::new(),
         }
     }
     
 }
 
 pub struct AppConfig {
-    pub serial_port: String,
+    // NOTE: serial_port is not here because it's not cross-environment; it will however be a CLI argument
     pub baud_rate: u32,
     
     pub end_of_line: String,
@@ -56,6 +60,8 @@ pub struct AppConfig {
     pub parity: serialport5::Parity,
     pub stop_bits: serialport5::StopBits,
 
-    pub line_wrap: bool,
+    // pub line_wrap: bool, // TODO: implement line wrap
+    // pub show_borders: bool, // TODO: implement show/hide borders
+    // pub show_help: bool, // TODO: implement show/hide help at bottom
 }
 
