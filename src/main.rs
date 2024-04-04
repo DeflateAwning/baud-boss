@@ -257,6 +257,46 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                             app.main_input.push(' ');
                         }
                     }
+
+                    // TODO: left and right arrow keys to move the cursor
+
+                    ModifierWrapper::Normal(KeyCode::Up) => {
+                        // go back in the send history
+                        match app.main_input_send_history_index {
+                            Some(index) => {
+                                if index > 0 {
+                                    app.main_input_send_history_index = Some(index - 1);
+                                    app.main_input = app.main_input_send_history[index - 1].clone();
+                                }
+                            }
+                            None => {
+                                app.main_input_send_history_index = Some(app.main_input_send_history.len() - 1);
+                                app.main_input_typing_in_progress_but_not_sent = Some(app.main_input.clone());
+                                app.main_input = app.main_input_send_history.last().unwrap_or(&String::new()).clone();
+                            }
+                        }
+                    }
+                    ModifierWrapper::Normal(KeyCode::Down) => {
+                        // go forward in the send history
+                        match app.main_input_send_history_index {
+                            Some(index) => {
+                                if index < (app.main_input_send_history.len() - 1) {
+                                    app.main_input_send_history_index = Some(index + 1);
+                                    app.main_input = app.main_input_send_history[index + 1].clone();
+                                }
+                                else if index == (app.main_input_send_history.len() - 1) {
+                                    app.main_input_send_history_index = None;
+                                    app.main_input = app.main_input_typing_in_progress_but_not_sent.take().unwrap_or(String::new());
+                                }
+                                else {
+                                    panic!("Index out of bounds in send history");
+                                }
+                            }
+                            None => {
+                                // do nothing
+                            }
+                        }
+                    }
                     
                     ModifierWrapper::Normal(KeyCode::Esc) => {
                         // change active region
@@ -274,7 +314,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                                 let data = app.main_input.as_bytes();
                                 match port.write(data) {
                                     Ok(_) => {
-                                        // clear the input field
+                                        app.main_input_send_history.push(app.main_input.clone());
                                         app.main_input.clear();
                                     }
                                     Err(e) => {

@@ -1,7 +1,9 @@
 # baud-boss
 A feature-rich UART serial terminal, written in Rust
 
-## Use It
+## Getting Started
+
+0. Install [rustup](https://rustup.rs), and then run `rustup update` to install `cargo`.
 
 ```bash
 cargo install --git https://github.com/DeflateAwning/baud-boss
@@ -10,6 +12,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 
 ## Features
 * print out incoming serial terminal content
+* access sent message history by pressing the up arrow key
 
 ## Upcoming Features
 [ ] send messages character-by-character
@@ -33,7 +36,6 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] horizontal scrolling of output window
 [ ] select from known common baud rates
 [ ] scrolling, scroll bar
-[ ] send history, accessible with up arrow key
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
