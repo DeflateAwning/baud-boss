@@ -33,6 +33,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] horizontal scrolling of output window
 [ ] select from known common baud rates
 [ ] scrolling, scroll bar
+[ ] send history, accessible with up arrow key
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)

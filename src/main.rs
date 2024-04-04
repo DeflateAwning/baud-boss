@@ -22,7 +22,7 @@ use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::Terminal;
 
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use std::error::Error;
 
@@ -247,8 +247,15 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                 match extract_modified_key(key) {
                     ModifierWrapper::Control(KeyCode::Char('h')) | ModifierWrapper::Control(KeyCode::Backspace) => {
                         // Ctrl+Backspace should delete the last word
-                        let last_space = app.main_input.rfind(' ').unwrap_or(0);
-                        app.main_input.truncate(last_space);
+                        app.main_input = app.main_input.trim_end().to_string(); // first, remove all trailing spaces
+
+                        let last_space_idx = app.main_input.rfind(' ').unwrap_or(0);
+                        app.main_input.truncate(last_space_idx);
+                        
+                        // add a trailing space if there's still text
+                        if app.main_input.len() > 0 {
+                            app.main_input.push(' ');
+                        }
                     }
                     
                     ModifierWrapper::Normal(KeyCode::Esc) => {
@@ -262,7 +269,25 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                         app.main_input.pop();
                     }
                     ModifierWrapper::Normal(KeyCode::Enter) => {
-                        // send the serial data
+                        match &mut app.bound_serial_port {
+                            Some(port) => {
+                                let data = app.main_input.as_bytes();
+                                match port.write(data) {
+                                    Ok(_) => {
+                                        // clear the input field
+                                        app.main_input.clear();
+                                    }
+                                    Err(e) => {
+                                        // TODO: handle this disconnect situation better - probably go back to port selection screen
+                                        app.main_input.push_str(&format!("Error writing to serial port: {}", e));
+                                    }
+                                }
+                            }
+                            None => {
+                                // this should never really happen
+                                app.main_input.push_str("Error: Serial port unbound itself between seeing if bytes are available, and reading them.");
+                            }
+                        }
                     }
                     _ => {}
                 }
