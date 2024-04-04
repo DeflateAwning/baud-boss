@@ -3,20 +3,26 @@ use app::{App, CurrentScreen, AppConfig};
 
 mod tui;
 use ratatui::style::Modifier;
+use serialport5::SerialPort;
 use tui::ui;
 
 mod tui_list_state_tracker;
 use tui_list_state_tracker::ListStateTracker;
 
+mod serial;
+use serial::{bind_serial_port};
+
 use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, ModifierKeyCode};
 use crossterm::execute;
 use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
-use ratatui::backend::{Backend, CrosstermBackend};
-use ratatui::Terminal;
-use std::io;
-
 use crossterm::event::{DisableMouseCapture, KeyboardEnhancementFlags};
 use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
+
+use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::Terminal;
+
+use std::io;
+use std::io::Read;
 
 use std::error::Error;
 
@@ -69,25 +75,68 @@ fn run_app<B: Backend>(
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        if let Ok(true) = event::poll(std::time::Duration::from_millis(100)) {
+        if let Ok(true) = event::poll(std::time::Duration::from_millis(50)) {
             if let Event::Key(key) = event::read()? {
                 if key.kind != event::KeyEventKind::Release {
                     // Skip events that are not KeyEventKind::Press
                     
                     // Handle KeyEventKind::Press events:
-                    if handle_keypresses(key, app) {
+                    if app_handle_keypresses(app, key) {
                         break;
                     }
                 }
             }
         }
+
+        // handle incoming serial data
+        match &mut app.bound_serial_port {
+            Some(port) => {
+                match port.bytes_to_read() {
+                    Ok(bytes_to_read) => {
+                        if bytes_to_read > 0 {
+                            app_handle_incoming_serial_data(app);
+                        }
+                    }
+                    Err(e) => {
+                        app.main_incoming_serial_data.push_str(&format!("Error checking bytes to read: {}", e));
+                    }
+                }
+            }
+            None => { }
+        }
     }
     Ok(())
 }
 
+fn app_handle_incoming_serial_data(app: &mut App) -> () {
+    // TODO: handle expect better maybe
+    let port = app.bound_serial_port.as_mut().expect("Serial port unbound itself between seeing if bytes are available, and reading them.");
+
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+    let bytes_read_count = port.read(serial_buf.as_mut_slice());
+
+    match bytes_read_count {
+        Ok(bytes_read_count) => {
+            if bytes_read_count > 0 {
+                let data = &serial_buf[..bytes_read_count];
+                let data_str = std::str::from_utf8(data).expect("Invalid UTF-8 chars, FIXME"); // FIXME: horrible unwrap here; this will have issues
+                app.main_incoming_serial_data.push_str(data_str); // TODO: delete very old data from this buffer to prevent memory leak
+                // TODO: push the data with color formatting maybe (for different types of data [e.g., EOL, end-of-message, non-printable-as-hex, etc.])
+                // TODO: write to files/logs, etc.
+            }
+        }
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            // do nothing
+        }
+        Err(e) => {
+            app.main_incoming_serial_data.push_str(&format!("Error reading from serial port: {}", e));
+        }
+    }
+}
+
 /// Handle keypresses for the app (next-screen logic, quit logic, input logic, etc.)
 /// Returns true if the app should exit
-fn handle_keypresses(key: KeyEvent, app: &mut App) -> bool {
+fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
     match app.current_screen {
         CurrentScreen::PickSerialPort => {
             if is_keypress_quit_event(key, true) {
@@ -107,7 +156,15 @@ fn handle_keypresses(key: KeyEvent, app: &mut App) -> bool {
                     match selected_port {
                         Some(port) => {
                             app.selected_serial_port = Some(port);
-                            app.current_screen = CurrentScreen::PickBaudRate;
+                            match app.app_config.baud_rate {
+                                None | Some(0) => {
+                                    app.current_screen = CurrentScreen::PickBaudRate;
+                                }
+                                _ => {
+                                    // if the baud rate is already set, just go to the main screen
+                                    app_transition_to_main(app);
+                                }
+                            }
                         }
                         None => {
                             app.selected_serial_port = None;
@@ -156,8 +213,8 @@ fn handle_keypresses(key: KeyEvent, app: &mut App) -> bool {
                     let baud_rate = app.pick_baud_rate_input_field.parse::<u32>();
                     match baud_rate {
                         Ok(rate) => {
-                            app.app_config.baud_rate = rate;
-                            app.current_screen = CurrentScreen::Main;
+                            app.app_config.baud_rate = Some(rate);
+                            app_transition_to_main(app);
                         }
                         Err(_) => {
                             // this shouldn't really happen, just clear the field and let them try again though
@@ -179,6 +236,7 @@ fn handle_keypresses(key: KeyEvent, app: &mut App) -> bool {
                     app.current_screen = CurrentScreen::Help;
                 }
                 ModifierWrapper::Control(KeyCode::Char('b')) => {
+                    // TODO: if the PickBaudRate screen was skipped, then going back should skip right to the PickSerialPort screen
                     app.current_screen = CurrentScreen::PickBaudRate;
                 }
                 _ => {}
@@ -221,6 +279,36 @@ fn handle_keypresses(key: KeyEvent, app: &mut App) -> bool {
 
     };
     false
+}
+
+/// Attempts to transition the app to the main screen by opening the serial port.
+/// If an error occurs, the app will revert back to the serial port selection screen, with an error message.
+fn app_transition_to_main(app: &mut App) -> () {
+    // attempt to open the serial port
+    match (&app.selected_serial_port, app.app_config.baud_rate) {
+        (Some(port_name), Some(baud_rate)) => {
+            match bind_serial_port(&port_name, baud_rate) {
+                Ok(serial_port) => {
+                    app.bound_serial_port = Some(serial_port);
+                    app.current_screen = CurrentScreen::Main;
+                }
+                Err(e) => {
+                    app.general_error_message = Some(format!("Error binding serial port: {}", e));
+                    app.current_screen = CurrentScreen::PickSerialPort;
+                }
+            }
+        }
+        (None, _) => {
+            // this should never really happen
+            app.general_error_message = Some(format!("Error: No serial port selected"));
+            app.current_screen = CurrentScreen::PickSerialPort;
+        }
+        (_, None) => {
+            // this should never really happen
+            app.general_error_message = Some(format!("Error: No baud rate selected")); // this message may not be shown as-is
+            app.current_screen = CurrentScreen::PickBaudRate;
+        }
+    }
 }
 
 fn is_keypress_quit_event(key: KeyEvent, is_q_quit: bool) -> bool {

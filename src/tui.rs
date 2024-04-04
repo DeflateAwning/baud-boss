@@ -44,7 +44,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 _ => 0,
             };
 
-            let list_items_strs: Vec<String> = match &ports {
+            let mut list_items_strs: Vec<String> = match &ports {
                 Ok(ports) => {
                     if ports.is_empty() {
                         vec![String::from("No serial ports found!")] // FIXME: make this not selectable
@@ -57,6 +57,10 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 },
                 Err(e) => vec![format!("Error finding serial ports ({})!", e)] // FIXME: make this not selectable
             };
+
+            if app.general_error_message.is_some() {
+                list_items_strs.push(app.general_error_message.clone().unwrap()); // FIXME: make this not selectable (it's a hack for now)
+            }
 
             app.pick_serial_port_list_state.update_items(list_items_strs.clone());
             
@@ -98,7 +102,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             f.render_widget(paragraph, chunks[1]);
         },
         CurrentScreen::Main => {
-            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate);
+            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
             let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
                 .block(Block::default().borders(Borders::ALL).title(main_title_text))
                 .wrap(Wrap { trim: true });

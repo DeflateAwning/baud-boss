@@ -14,7 +14,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 ## Upcoming Features
 [ ] send messages character-by-character
 [ ] send messages by preparing them in an input box
-[ ] pause output
+[ ] control keys/buttons: pause output, clear output, print a newline right now
 [ ] configurable EOL behaviour (TX)
 [ ] configurable EOL behaviour (RX)
 [ ] UI for selecting options, instead of requiring they be supplied by CLI args
