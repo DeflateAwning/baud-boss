@@ -259,7 +259,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                         }
                     }
 
-                    // TODO: left and right arrow keys to move the cursor
+                    // left and right arrow keys to move the cursor
                     ModifierWrapper::Normal(KeyCode::Left) => {
                         // move the cursor left
                         match app.main_input_cursor_position {
@@ -269,7 +269,9 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                                 }
                             }
                             None => {
-                                app.main_input_cursor_position = Some(app.main_input.len() - 1);
+                                if app.main_input.len() > 0 {
+                                    app.main_input_cursor_position = Some(app.main_input.len() - 1);
+                                }
                             }
                         }
                     }
@@ -287,7 +289,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                             None => {}
                         }
                     }
-                    // TODO: home and end keys to move the cursor
+                    // TODO: home and end keys to move the cursor to start and end of lines
 
                     ModifierWrapper::Normal(KeyCode::Up) => {
                         // go back in the send history

@@ -13,7 +13,8 @@ serialport5 = "5.0.2"
 clap = { version = "4.5.4", features = ["derive"] }
 
 # ratatui for the Terminal UI
-ratatui = "0.26.1"
+# ratatui = "0.26.1"
+ratatui = { git = "https://github.com/DeflateAwning/ratatui.git", branch = "da-scrollbar-is_at_bottom" }
 
 # crossterm because ratatui uses it
 crossterm = "0.27.0"

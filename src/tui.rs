@@ -114,7 +114,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             // TODO: add option to show hex-and-ascii side-by-side
             let size = frame.size();
             let main_screen_chunks = Layout::vertical([
-                Constraint::Length(3),
+                Constraint::Length(3), // TODO: make the input part grow as needed, but be as small as possible
                 Constraint::Min(0),
                 Constraint::Length(3),
             ])
@@ -125,34 +125,56 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
             //     .wrap(Wrap { trim: true });
 
+            let was_incoming_data_scroll_at_bottom: bool = app.main_screen_vertical_scroll_state.is_at_bottom();
 
             let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
             let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
             let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
 
-            // FIXME: confirm if this scroll-to-the-bottom works
-            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len()).position(1000000);
+            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
             app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
             
             let send_input_text = match app.main_input_cursor_position {
                 Some(cursor_position) => {
                     let mut input_text = app.main_input.clone();
                     // let debug_cursor_position_as_char = cursor_position.to_string().chars().nth(0).unwrap();
-                    input_text.insert(cursor_position, get_blinking_cursor('|', ' '));
+                    if app.main_screen_active_region_is_input {
+                        input_text.insert(cursor_position, get_blinking_cursor('|', ' '));
+                    }
                     input_text
                 },
                 None => {
-                    format!("{}{}", app.main_input, get_blinking_cursor('_', ' '))
+                    if app.main_screen_active_region_is_input {
+                        format!("{}{}", app.main_input, get_blinking_cursor('_', ' '))
+                    }
+                    else {
+                        app.main_input.clone()
+                    }
                 }
             };
             let send_input_paragraph = Paragraph::new(Text::raw(send_input_text))
-                .block(Block::default().borders(Borders::ALL).title("Send Data"))
-                .wrap(Wrap { trim: false }); // TODO: if showing history, show the negative index of the history in the "Send Data" text
+                .block(Block::default()
+                .borders(Borders::ALL)
+                .border_style({
+                    if app.main_screen_active_region_is_input {
+                        Style::default().fg(Color::Green)
+                    } else {
+                        Style::default()
+                    }
+                }) // Set border color to red
+                .title("Send Data"))
+                .wrap(Wrap { trim: false });
+            // TODO: if showing history, show the negative index of the history in the "Send Data" text
+            // TODO: show if immediate or on-enter
+            // TODO: show if hex or ascii
+            // TODO: in immediate mode, flash the characters here for a sec after sending (maybe 500ms)
             frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
             // TODO: prevent scrolling if there's no need to scroll (currently lets you scroll the content fully off the screen)
-            // TODO: add config option for wrapping text
+                // https://github.com/ratatui-org/ratatui/issues/1017
+            
+            // TODO: add config option for wrapping text in the incoming_data block
         
             let incoming_data_paragraph = Paragraph::new(incoming_data_lines.clone())
                 // .gray()
@@ -164,6 +186,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             frame.render_widget(incoming_data_paragraph, main_screen_chunks[1]);
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .thumb_style({
+                        if app.main_screen_active_region_is_input {
+                            Style::default()
+                        } else {
+                            Style::default().fg(Color::LightGreen)
+                        }
+                    })
                     .begin_symbol(Some("↑")).end_symbol(Some("↓"))
                     .thumb_symbol("░"), // TOOD: check veritcal thumb symbol
                 main_screen_chunks[1],
@@ -171,6 +200,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             );
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::HorizontalBottom)
+                    .thumb_style({
+                        if app.main_screen_active_region_is_input {
+                            Style::default()
+                        } else {
+                            Style::default().fg(Color::LightGreen)
+                        }
+                    })
                     .begin_symbol(Some("◄")).end_symbol(Some("►"))
                     .thumb_symbol("░"),
                 main_screen_chunks[1].inner(&Margin {
@@ -180,14 +216,16 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 &mut app.main_screen_horizontal_scroll_state,
             );
 
+            // scroll to the new bottom, if we're already near the bottom
+            if was_incoming_data_scroll_at_bottom {
+                app.main_screen_vertical_scroll_state.last();
+            }
 
             // TODO: update keybinding coloring, update based on which screen is active
             let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Type to prep data | Enter to send")
                 .block(Block::default().borders(Borders::ALL).title("Help"))
                 .wrap(Wrap { trim: true });
             frame.render_widget(help_paragraph, main_screen_chunks[2]);
-        
-            // TODO: render input box
         },
         CurrentScreen::Config1 => {
             let paragraph = Paragraph::new(Text::raw("Config1 Screen (NOT IMPLEMENTED):"))
