@@ -41,8 +41,26 @@ baud-boss
 - [ ] pre-load a list of commands/messages to send, and pick from the list
 
 ## Known Issues
-* keybinding in footer are still changing; guess-and-check until you bind some that work
+* keybinding in footer are still changing; guess-and-check until you find some that work
+
+## Dependencies/Acknowledgements
+* [ratatui](https://github.com/ratatui-org/ratatui)
+* [serialport5](https://gitlab.com/susurrus/serialport-rs)
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
 * [ttyper](https://github.com/max-niederman/ttyper) (for its UI)
+
+## Contributing
+* Please Star this repo if it's useful! Share it with your friends.
+* Please submit PRs which fix any TODO messages within.
+* Please submit PRs which implement any of the features above.
+* Please submit Issues with any feature requests and bug reports!
+
+For local dev testing on Linux, use the following to create two connected virtual serial ports:
+```bash
+socat PTY,link=/dev/ttyS10 PTY,link=/dev/ttyS11
+
+# in a new window (do twice, selecting the two ports from the last step):
+cargo build && sudo ./target/debug/baud-boss
+```
