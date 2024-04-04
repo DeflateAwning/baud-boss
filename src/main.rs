@@ -189,7 +189,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
             }
             match key.code {
                 KeyCode::Char('b') => {
-                    // go back
+                    // go back (both 'b' and Ctrl+B)
                     app.current_screen = CurrentScreen::PickSerialPort;
                 }
                 KeyCode::Char('c') => {
@@ -232,7 +232,7 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
             }
 
             match extract_modified_key(key) {
-                ModifierWrapper::Control(KeyCode::Char('h')) => {
+                ModifierWrapper::Control(KeyCode::Char('?')) => {
                     app.current_screen = CurrentScreen::Help;
                 }
                 ModifierWrapper::Control(KeyCode::Char('b')) => {
@@ -242,43 +242,75 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                 _ => {}
             }
 
-            match key.code {
-                // TODO: change scroll bindings
-                // TODO: check scroll repeat rate
-                // TODO: add mouse binding
-                // Scroll array bindings
-                KeyCode::Char('j') | KeyCode::Down => {
-                    app.main_screen_vertical_scroll_val = 
-                        app.main_screen_vertical_scroll_val.saturating_add(1);
-                    app.main_screen_vertical_scroll_state =
-                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
-                }
-                KeyCode::Char('k') | KeyCode::Up => {
-                    app.main_screen_vertical_scroll_val = 
-                        app.main_screen_vertical_scroll_val.saturating_sub(1);
-                    app.main_screen_vertical_scroll_state =
-                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
-                }
-                KeyCode::Char('h') | KeyCode::Left => {
-                    app.main_screen_horizontal_scroll_val = 
-                        app.main_screen_horizontal_scroll_val.saturating_sub(1);
-                    app.main_screen_horizontal_scroll_state =
-                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
-                }
-                KeyCode::Char('l') | KeyCode::Right => {
-                    app.main_screen_horizontal_scroll_val = 
-                        app.main_screen_horizontal_scroll_val.saturating_add(1);
-                    app.main_screen_horizontal_scroll_state =
-                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
-                }
+            if app.main_screen_active_region_is_input {
                 
-                // TODO: home/end/pageup/pagedown
-
-
-                KeyCode::Enter => {
-                    // TODO: send the data
+                match extract_modified_key(key) {
+                    ModifierWrapper::Control(KeyCode::Char('h')) | ModifierWrapper::Control(KeyCode::Backspace) => {
+                        // Ctrl+Backspace should delete the last word
+                        let last_space = app.main_input.rfind(' ').unwrap_or(0);
+                        app.main_input.truncate(last_space);
+                    }
+                    
+                    ModifierWrapper::Normal(KeyCode::Esc) => {
+                        // change active region
+                        app.main_screen_active_region_is_input = false;
+                    }
+                    ModifierWrapper::Normal(KeyCode::Char(c)) => {
+                        app.main_input.push(c);
+                    }
+                    ModifierWrapper::Normal(KeyCode::Backspace) => {
+                        app.main_input.pop();
+                    }
+                    ModifierWrapper::Normal(KeyCode::Enter) => {
+                        // send the serial data
+                    }
+                    _ => {}
                 }
-                _ => {}
+            }
+            else { // active region is the incoming data region (with scroll bars)
+                match key.code {
+                    KeyCode::Esc => {
+                        // change active region
+                        app.main_screen_active_region_is_input = true;
+                    }
+
+                    // TODO: change scroll bindings
+                    // TODO: check scroll repeat rate
+                    // TODO: add mouse binding
+                    // Scroll array bindings
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        app.main_screen_vertical_scroll_val = 
+                            app.main_screen_vertical_scroll_val.saturating_add(1);
+                        app.main_screen_vertical_scroll_state =
+                            app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        app.main_screen_vertical_scroll_val = 
+                            app.main_screen_vertical_scroll_val.saturating_sub(1);
+                        app.main_screen_vertical_scroll_state =
+                            app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                    }
+                    KeyCode::Char('h') | KeyCode::Left => {
+                        app.main_screen_horizontal_scroll_val = 
+                            app.main_screen_horizontal_scroll_val.saturating_sub(1);
+                        app.main_screen_horizontal_scroll_state =
+                            app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                    }
+                    KeyCode::Char('l') | KeyCode::Right => {
+                        app.main_screen_horizontal_scroll_val = 
+                            app.main_screen_horizontal_scroll_val.saturating_add(1);
+                        app.main_screen_horizontal_scroll_state =
+                            app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                    }
+                    
+                    // TODO: home/end/pageup/pagedown
+
+
+                    KeyCode::Enter => {
+                        // TODO: send the data
+                    }
+                    _ => {}
+                }
             }
         },
 

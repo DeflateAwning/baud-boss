@@ -22,7 +22,7 @@ pub struct App {
 
     // TODO: pick_baud_rate_active_list options
 
-    pub main_input: String, // TODO: maybe make this a Vec<u8> instead
+    pub main_input: String, // TODO: maybe make this a Vec<u8> instead, probably
     pub main_incoming_serial_data: String,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
@@ -31,6 +31,7 @@ pub struct App {
     pub main_screen_horizontal_scroll_state: ScrollbarState,
     pub main_screen_vertical_scroll_val: usize,
     pub main_screen_horizontal_scroll_val: usize,
+    pub main_screen_active_region_is_input: bool,
 }
 
 impl App {
@@ -61,6 +62,7 @@ impl App {
             main_screen_horizontal_scroll_state: ScrollbarState::default(),
             main_screen_vertical_scroll_val: 0,
             main_screen_horizontal_scroll_val: 0,
+            main_screen_active_region_is_input: true,
         }
     }
     
@@ -81,5 +83,6 @@ pub struct AppConfig {
     // pub line_wrap: bool, // TODO: implement line wrap
     // pub show_borders: bool, // TODO: implement show/hide borders
     // pub show_help: bool, // TODO: implement show/hide help at bottom
+    // TODO: echo on or off
 }
 

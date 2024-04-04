@@ -97,17 +97,17 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             
             // TODO: make the baud rate selection show a greyed-out default value, which is selectable with 'enter'
             let baud_input_text = format!("Value: {}{} bits per second (baud)", app.pick_baud_rate_input_field, get_blinking_cursor_state());
-            let paragraph = Paragraph::new(Text::raw(baud_input_text))
+            let baud_input_paragraph = Paragraph::new(Text::raw(baud_input_text))
                 .block(Block::default().borders(Borders::ALL).title(select_baud_rate_title_text))
                 .wrap(Wrap { trim: true });
-
-            frame.render_widget(title, general_chunks[0]);
-            frame.render_widget(paragraph, general_chunks[1]);
 
             // TODO: update keybinding coloring, update based on which screen is active
             let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Help: Ctrl+H")
                 .block(Block::default().borders(Borders::ALL).title("Help"))
                 .wrap(Wrap { trim: true });
+
+            frame.render_widget(title, general_chunks[0]);
+            frame.render_widget(baud_input_paragraph, general_chunks[1]);
             frame.render_widget(help_paragraph, general_chunks[2]);
         },
         CurrentScreen::Main => {
@@ -130,26 +130,28 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
             let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
 
-            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
+            // FIXME: confirm if this scroll-to-the-bottom works
+            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len()).position(1000000);
             app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
-        
-            let title = Block::new()
-                .title_alignment(Alignment::Center)
-                .title("Use h j k l or ◄ ▲ ▼ ► to scroll ".bold());
-            frame.render_widget(title, main_screen_chunks[0]);
+            
+            let send_input_text = format!("{}{}", app.main_input, get_blinking_cursor_state());
+            let send_input_paragraph = Paragraph::new(Text::raw(send_input_text))
+                .block(Block::default().borders(Borders::ALL).title("Send Data"))
+                .wrap(Wrap { trim: true });
+            frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
             // TODO: prevent scrolling if there's no need to scroll (currently lets you scroll the content fully off the screen)
             // TODO: add config option for wrapping text
         
-            let paragraph = Paragraph::new(incoming_data_lines.clone())
+            let incoming_data_paragraph = Paragraph::new(incoming_data_lines.clone())
                 // .gray()
                 .block(Block::default().borders(Borders::ALL).title(main_title_text.bold()))
                 .scroll((
                     app.main_screen_vertical_scroll_val as u16,
                     app.main_screen_horizontal_scroll_val as u16));
 
-            frame.render_widget(paragraph, main_screen_chunks[1]);
+            frame.render_widget(incoming_data_paragraph, main_screen_chunks[1]);
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(Some("↑")).end_symbol(Some("↓"))
