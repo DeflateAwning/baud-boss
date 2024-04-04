@@ -15,5 +15,5 @@ clap = { version = "4.5.4", features = ["derive"] }
 # ratatui for the Terminal UI
 ratatui = "0.26.1"
 
-# crossterm for cross-platform terminal manipulation
+# crossterm because ratatui uses it
 crossterm = "0.27.0"
