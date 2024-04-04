@@ -7,7 +7,9 @@ A feature-rich UART serial terminal, written in Rust
 
 ```bash
 cargo install --git https://github.com/DeflateAwning/baud-boss
-# TODO: how to run it after installing like this?
+
+# run with the command:
+baud-boss
 ```
 
 ## Features
@@ -36,6 +38,9 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] horizontal scrolling of output window
 [ ] select from known common baud rates
 [ ] scrolling, scroll bar
+
+## Known Issues
+* keybinding in footer are still changing; guess-and-check until you bind some that work
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)
