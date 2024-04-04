@@ -5,6 +5,9 @@ mod tui;
 use ratatui::style::Modifier;
 use tui::ui;
 
+mod tui_list_state_tracker;
+use tui_list_state_tracker::ListStateTracker;
+
 use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, ModifierKeyCode};
 use crossterm::execute;
 use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
@@ -77,9 +80,27 @@ fn run_app<B: Backend>(
                     if is_keypress_quit_event(key, true) {
                         break;
                     }
+                    // TODO: handle up and down arrows
                     match key.code {
+                        KeyCode::Char('j') | KeyCode::Down | KeyCode::Right => {
+                            app.pick_serial_port_list_state.next();
+                        }
+                        KeyCode::Char('k') | KeyCode::Up | KeyCode::Left => {
+                            app.pick_serial_port_list_state.previous();
+                        }
                         KeyCode::Enter => {
-                            app.current_screen = CurrentScreen::PickBaudRate;
+                            // read and store the selected serial port
+                            let selected_port = app.pick_serial_port_list_state.get_selected();
+                            match selected_port {
+                                Some(port) => {
+                                    app.selected_serial_port = Some(port);
+                                    app.current_screen = CurrentScreen::PickBaudRate;
+                                }
+                                None => {
+                                    app.selected_serial_port = None;
+                                    // don't change screens
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -90,6 +111,10 @@ fn run_app<B: Backend>(
                         break;
                     }
                     match key.code {
+                        KeyCode::Char('b') => {
+                            // go back
+                            app.current_screen = CurrentScreen::PickSerialPort;
+                        }
                         KeyCode::Enter => {
                             app.current_screen = CurrentScreen::Main;
                         }
@@ -115,10 +140,7 @@ fn run_app<B: Backend>(
                         break;
                     }
                     match key.code {
-                        KeyCode::Esc => {
-                            app.current_screen = CurrentScreen::Main;
-                        }
-                        KeyCode::Enter => {
+                        KeyCode::Esc | KeyCode::Enter => {
                             app.current_screen = CurrentScreen::Main;
                         }
                         // TODO: handle changing the config
@@ -151,13 +173,37 @@ fn is_keypress_quit_event(key: KeyEvent, is_q_quit: bool) -> bool {
     if key.kind == event::KeyEventKind::Release {
         return false;
     }
-    if is_q_quit && (key.code == KeyCode::Char('q')) {
-        return true;
-    }
-    if key.modifiers == KeyModifiers::CONTROL {
-        if vec![KeyCode::Char('c'), KeyCode::Char(']')].contains(&key.code) {
+    match extract_modified_key(key) {
+        ModifierWrapper::Control(KeyCode::Char('c')) => {
             return true;
         }
+        ModifierWrapper::Control(KeyCode::Char('q')) => {
+            return true;
+        }
+        ModifierWrapper::Normal(KeyCode::Char(']')) => {
+            return true;
+        }
+        ModifierWrapper::Normal(KeyCode::Char('q')) => {
+            return is_q_quit;
+        }
+        _ => {}
     }
     false
+}
+
+fn extract_modified_key(key: KeyEvent) -> ModifierWrapper {
+    match key.modifiers {
+        KeyModifiers::CONTROL => {
+            return ModifierWrapper::Control(key.code);
+        }
+        _ => {
+            return ModifierWrapper::Normal(key.code);
+        }
+    }
+}
+
+// TODO: get this working
+enum ModifierWrapper {
+    Control(KeyCode),
+    Normal(KeyCode),
 }

@@ -29,6 +29,7 @@ cargo install --git https://github.com/DeflateAwning/baud-boss
 [ ] encoding
 [ ] filters
 [ ] send the `Ctrl+]`, etc. control characters to the remote
+[ ] horizontal scrolling of output window
 
 ## Inspiration
 * [pyserial](https://github.com/pyserial/pyserial) (for its ubiquity)

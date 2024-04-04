@@ -1,3 +1,6 @@
+use ratatui::widgets::ListState;
+use crate::tui_list_state_tracker::ListStateTracker;
+
 pub enum CurrentScreen {
     PickSerialPort,
     PickBaudRate,
@@ -9,6 +12,13 @@ pub enum CurrentScreen {
 pub struct App {
     pub current_screen: CurrentScreen,
     pub app_config: AppConfig,
+
+    pub pick_serial_port_list_state: ListStateTracker,
+    pub selected_serial_port: Option<String>, // not in config as it's emphemeral
+
+    // TODO: pick_baud_rate_active_list options
+
+    pub main_input: String, // TODO: maybe make this a Vec<u8> instead
 }
 
 impl App {
@@ -22,7 +32,14 @@ impl App {
                 data_bits: 8,
                 parity: serialport5::Parity::None,
                 stop_bits: serialport5::StopBits::One,
+
+                line_wrap: true,
             },
+
+            pick_serial_port_list_state: ListStateTracker::default(),
+            selected_serial_port: None,
+
+            main_input: String::new(),
         }
     }
     
@@ -38,5 +55,7 @@ pub struct AppConfig {
     pub data_bits: u8,
     pub parity: serialport5::Parity,
     pub stop_bits: serialport5::StopBits,
+
+    pub line_wrap: bool,
 }
 
