@@ -289,7 +289,16 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                             None => {}
                         }
                     }
-                    // TODO: home and end keys to move the cursor to start and end of lines
+                    
+                    // home and end keys to jump the cursor
+                    ModifierWrapper::Normal(KeyCode::Home) => {
+                        if app.main_input.len() > 0 {
+                            app.main_input_cursor_position = Some(0);
+                        }
+                    }
+                    ModifierWrapper::Normal(KeyCode::End) => {
+                        app.main_input_cursor_position = None;
+                    }
 
                     ModifierWrapper::Normal(KeyCode::Up) => {
                         // go back in the send history
