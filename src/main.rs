@@ -1,18 +1,13 @@
 mod app;
-use app::{App, CurrentScreen, AppConfig};
-
 mod tui;
-use ratatui::style::Modifier;
-use serialport5::SerialPort;
-use tui::ui;
-
 mod tui_list_state_tracker;
-use tui_list_state_tracker::ListStateTracker;
-
 mod serial;
-use serial::{bind_serial_port};
 
-use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers, ModifierKeyCode};
+use app::{App, AppConfig, CurrentScreen, MainScreenActiveRegion};
+use tui::ui;
+use serial::bind_serial_port;
+
+use crossterm::event::{self, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
 use crossterm::event::{DisableMouseCapture, KeyboardEnhancementFlags};
@@ -243,192 +238,200 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
                 _ => {}
             }
 
-            if app.main_screen_active_region_is_input {
-                
-                match extract_modified_key(key) {
-                    ModifierWrapper::Control(KeyCode::Char('h')) | ModifierWrapper::Control(KeyCode::Backspace) => {
-                        // Ctrl+Backspace should delete the last word
-                        app.main_input = app.main_input.trim_end().to_string(); // first, remove all trailing spaces
+            match app.main_screen_active_region {
+                MainScreenActiveRegion::Input => {
+                    match extract_modified_key(key) {
+                        ModifierWrapper::Control(KeyCode::Char('h')) | ModifierWrapper::Control(KeyCode::Backspace) => {
+                            // Ctrl+Backspace should delete the last word
+                            app.main_input = app.main_input.trim_end().to_string(); // first, remove all trailing spaces
 
-                        let last_space_idx = app.main_input.rfind(' ').unwrap_or(0);
-                        app.main_input.truncate(last_space_idx);
-                        
-                        // add a trailing space if there's still text
-                        if app.main_input.len() > 0 {
-                            app.main_input.push(' ');
+                            let last_space_idx = app.main_input.rfind(' ').unwrap_or(0);
+                            app.main_input.truncate(last_space_idx);
+                            
+                            // add a trailing space if there's still text
+                            if app.main_input.len() > 0 {
+                                app.main_input.push(' ');
+                            }
                         }
-                    }
 
-                    // left and right arrow keys to move the cursor
-                    ModifierWrapper::Normal(KeyCode::Left) => {
-                        // move the cursor left
-                        match app.main_input_cursor_position {
-                            Some(pos) => {
-                                if pos > 0 {
-                                    app.main_input_cursor_position = Some(pos - 1);
+                        // left and right arrow keys to move the cursor
+                        ModifierWrapper::Normal(KeyCode::Left) => {
+                            // move the cursor left
+                            match app.main_input_cursor_position {
+                                Some(pos) => {
+                                    if pos > 0 {
+                                        app.main_input_cursor_position = Some(pos - 1);
+                                    }
                                 }
-                            }
-                            None => {
-                                if app.main_input.len() > 0 {
-                                    app.main_input_cursor_position = Some(app.main_input.len() - 1);
-                                }
-                            }
-                        }
-                    }
-                    ModifierWrapper::Normal(KeyCode::Right) => {
-                        // move the cursor right
-                        match app.main_input_cursor_position {
-                            Some(pos) => {
-                                if pos < (app.main_input.len() - 1) {
-                                    app.main_input_cursor_position = Some(pos + 1);
-                                }
-                                else {
-                                    app.main_input_cursor_position = None;
-                                }
-                            }
-                            None => {}
-                        }
-                    }
-                    
-                    // home and end keys to jump the cursor
-                    ModifierWrapper::Normal(KeyCode::Home) => {
-                        if app.main_input.len() > 0 {
-                            app.main_input_cursor_position = Some(0);
-                        }
-                    }
-                    ModifierWrapper::Normal(KeyCode::End) => {
-                        app.main_input_cursor_position = None;
-                    }
-
-                    ModifierWrapper::Normal(KeyCode::Up) => {
-                        // go back in the send history
-                        app.main_input_cursor_position = None;
-                        match app.main_input_send_history_index {
-                            Some(index) => {
-                                if index > 0 {
-                                    app.main_input_send_history_index = Some(index - 1);
-                                    app.main_input = app.main_input_send_history[index - 1].clone();
-                                }
-                            }
-                            None => {
-                                if app.main_input_send_history.len() > 0 {
-                                    app.main_input_send_history_index = Some(app.main_input_send_history.len() - 1);
-                                    app.main_input_typing_in_progress_but_not_sent = Some(app.main_input.clone());
-                                    app.main_input = app.main_input_send_history.last().unwrap_or(&String::new()).clone();
+                                None => {
+                                    if app.main_input.len() > 0 {
+                                        app.main_input_cursor_position = Some(app.main_input.len() - 1);
+                                    }
                                 }
                             }
                         }
-                    }
-                    ModifierWrapper::Normal(KeyCode::Down) => {
-                        app.main_input_cursor_position = None;
-                        // go forward in the send history
-                        match app.main_input_send_history_index {
-                            Some(index) => {
-                                if index < (app.main_input_send_history.len() - 1) {
-                                    app.main_input_send_history_index = Some(index + 1);
-                                    app.main_input = app.main_input_send_history[index + 1].clone();
-                                }
-                                else if index == (app.main_input_send_history.len() - 1) {
-                                    app.main_input_send_history_index = None;
-                                    app.main_input = app.main_input_typing_in_progress_but_not_sent.take().unwrap_or(String::new());
-                                }
-                                else {
-                                    panic!("Index out of bounds in send history");
-                                }
-                            }
-                            None => {
-                                // do nothing
-                            }
-                        }
-                    }
-                    
-                    ModifierWrapper::Normal(KeyCode::Esc) => {
-                        // change active region
-                        app.main_screen_active_region_is_input = false;
-                    }
-                    ModifierWrapper::Normal(KeyCode::Char(c)) => {
-                        match app.main_input_cursor_position {
-                            Some(pos) => {
-                                app.main_input.insert(pos, c);
-                                app.main_input_cursor_position = Some(pos + 1);
-                            }
-                            None => {
-                                app.main_input.push(c);
-                            }
-                        }
-                    }
-                    ModifierWrapper::Normal(KeyCode::Backspace) => {
-                        app.main_input.pop();
-                    }
-                    ModifierWrapper::Normal(KeyCode::Enter) => {
-                        match &mut app.bound_serial_port {
-                            Some(port) => {
-                                let data = app.main_input.as_bytes();
-                                match port.write(data) {
-                                    Ok(_) => {
-                                        app.main_input_send_history.push(app.main_input.clone());
-                                        app.main_input_send_history_index = None;
-                                        app.main_input.clear();
+                        ModifierWrapper::Normal(KeyCode::Right) => {
+                            // move the cursor right
+                            match app.main_input_cursor_position {
+                                Some(pos) => {
+                                    if pos < (app.main_input.len() - 1) {
+                                        app.main_input_cursor_position = Some(pos + 1);
+                                    }
+                                    else {
                                         app.main_input_cursor_position = None;
                                     }
-                                    Err(e) => {
-                                        // TODO: handle this disconnect situation better - probably go back to port selection screen
-                                        app.main_input.push_str(&format!("Error writing to serial port: {}", e));
+                                }
+                                None => {}
+                            }
+                        }
+                        
+                        // home and end keys to jump the cursor
+                        ModifierWrapper::Normal(KeyCode::Home) => {
+                            if app.main_input.len() > 0 {
+                                app.main_input_cursor_position = Some(0);
+                            }
+                        }
+                        ModifierWrapper::Normal(KeyCode::End) => {
+                            app.main_input_cursor_position = None;
+                        }
+
+                        ModifierWrapper::Normal(KeyCode::Up) => {
+                            // go back in the send history
+                            app.main_input_cursor_position = None;
+                            match app.main_input_send_history_index {
+                                Some(index) => {
+                                    if index > 0 {
+                                        app.main_input_send_history_index = Some(index - 1);
+                                        app.main_input = app.main_input_send_history[index - 1].clone();
+                                    }
+                                }
+                                None => {
+                                    if app.main_input_send_history.len() > 0 {
+                                        app.main_input_send_history_index = Some(app.main_input_send_history.len() - 1);
+                                        app.main_input_typing_in_progress_but_not_sent = Some(app.main_input.clone());
+                                        app.main_input = app.main_input_send_history.last().unwrap_or(&String::new()).clone();
                                     }
                                 }
                             }
-                            None => {
-                                // this should never really happen
-                                app.main_input.push_str("Error: Serial port unbound itself between seeing if bytes are available, and reading them.");
+                        }
+                        ModifierWrapper::Normal(KeyCode::Down) => {
+                            app.main_input_cursor_position = None;
+                            // go forward in the send history
+                            match app.main_input_send_history_index {
+                                Some(index) => {
+                                    if index < (app.main_input_send_history.len() - 1) {
+                                        app.main_input_send_history_index = Some(index + 1);
+                                        app.main_input = app.main_input_send_history[index + 1].clone();
+                                    }
+                                    else if index == (app.main_input_send_history.len() - 1) {
+                                        app.main_input_send_history_index = None;
+                                        app.main_input = app.main_input_typing_in_progress_but_not_sent.take().unwrap_or(String::new());
+                                    }
+                                    else {
+                                        panic!("Index out of bounds in send history");
+                                    }
+                                }
+                                None => {
+                                    // do nothing
+                                }
                             }
                         }
+                        
+                        ModifierWrapper::Normal(KeyCode::Esc) | ModifierWrapper::Normal(KeyCode::Tab) => {
+                            // change active region
+                            app.main_screen_active_region = MainScreenActiveRegion::OutputScrollBars;
+                        }
+                        ModifierWrapper::Normal(KeyCode::Char(c)) => {
+                            match app.main_input_cursor_position {
+                                Some(pos) => {
+                                    app.main_input.insert(pos, c);
+                                    app.main_input_cursor_position = Some(pos + 1);
+                                }
+                                None => {
+                                    app.main_input.push(c);
+                                }
+                            }
+                        }
+                        ModifierWrapper::Normal(KeyCode::Backspace) => {
+                            app.main_input.pop();
+                        }
+                        ModifierWrapper::Normal(KeyCode::Enter) => {
+                            match &mut app.bound_serial_port {
+                                Some(port) => {
+                                    let data = app.main_input.as_bytes();
+                                    match port.write(data) {
+                                        Ok(_) => {
+                                            app.main_input_send_history.push(app.main_input.clone());
+                                            app.main_input_send_history_index = None;
+                                            app.main_input.clear();
+                                            app.main_input_cursor_position = None;
+                                        }
+                                        Err(e) => {
+                                            // TODO: handle this disconnect situation better - probably go back to port selection screen
+                                            app.main_input.push_str(&format!("Error writing to serial port: {}", e));
+                                        }
+                                    }
+                                }
+                                None => {
+                                    // this should never really happen
+                                    app.main_input.push_str("Error: Serial port unbound itself between seeing if bytes are available, and reading them.");
+                                }
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
-            }
-            else { // active region is the incoming data region (with scroll bars)
-                match key.code {
-                    KeyCode::Esc => {
-                        // change active region
-                        app.main_screen_active_region_is_input = true;
-                    }
+                
+                MainScreenActiveRegion::OutputScrollBars => {
+                    match key.code {
+                        KeyCode::Esc | KeyCode::Tab => {
+                            // change active region
+                            app.main_screen_active_region = MainScreenActiveRegion::Input;
+                        }
 
-                    // TODO: change scroll bindings
-                    // TODO: check scroll repeat rate
-                    // TODO: add mouse binding
-                    // Scroll array bindings
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        app.main_screen_vertical_scroll_val = 
-                            app.main_screen_vertical_scroll_val.saturating_add(1);
-                        app.main_screen_vertical_scroll_state =
-                            app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.main_screen_vertical_scroll_val = 
-                            app.main_screen_vertical_scroll_val.saturating_sub(1);
-                        app.main_screen_vertical_scroll_state =
-                            app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
-                    }
-                    KeyCode::Char('h') | KeyCode::Left => {
-                        app.main_screen_horizontal_scroll_val = 
-                            app.main_screen_horizontal_scroll_val.saturating_sub(1);
-                        app.main_screen_horizontal_scroll_state =
-                            app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
-                    }
-                    KeyCode::Char('l') | KeyCode::Right => {
-                        app.main_screen_horizontal_scroll_val = 
-                            app.main_screen_horizontal_scroll_val.saturating_add(1);
-                        app.main_screen_horizontal_scroll_state =
-                            app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
-                    }
-                    
-                    // TODO: home/end/pageup/pagedown
+                        // TODO: change scroll bindings
+                        // TODO: check scroll repeat rate
+                        // TODO: add mouse binding
+                        // Scroll array bindings
+                        KeyCode::Char('j') | KeyCode::Down => {
+                            app.main_screen_vertical_scroll_val = 
+                                app.main_screen_vertical_scroll_val.saturating_add(1);
+                            app.main_screen_vertical_scroll_state =
+                                app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                        }
+                        KeyCode::Char('k') | KeyCode::Up => {
+                            app.main_screen_vertical_scroll_val = 
+                                app.main_screen_vertical_scroll_val.saturating_sub(1);
+                            app.main_screen_vertical_scroll_state =
+                                app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+                        }
+                        KeyCode::Char('h') | KeyCode::Left => {
+                            app.main_screen_horizontal_scroll_val = 
+                                app.main_screen_horizontal_scroll_val.saturating_sub(1);
+                            app.main_screen_horizontal_scroll_state =
+                                app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                        }
+                        KeyCode::Char('l') | KeyCode::Right => {
+                            app.main_screen_horizontal_scroll_val = 
+                                app.main_screen_horizontal_scroll_val.saturating_add(1);
+                            app.main_screen_horizontal_scroll_state =
+                                app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+                        }
+                        
+                        // TODO: home/end/pageup/pagedown
 
 
-                    KeyCode::Enter => {
-                        // TODO: send the data
+                        KeyCode::Enter => {
+                            // TODO: send the data
+                        }
+                        _ => {}
                     }
-                    _ => {}
+                }
+            
+                MainScreenActiveRegion::InputEolChoice => {
+                    // left and right cycle through the choices
+                    let eol_choices = vec!["", "\n", "\r", "\r\n", "\n\r"];
+                    // FIXME: start here
                 }
             }
         },

@@ -13,12 +13,12 @@ baud-boss
 ```
 
 ## Features
-* print out incoming serial terminal content
-* access sent message history by pressing the up arrow key
+* See RX'd data.
+* Send messages by preparing them in an input box.
+* Access sent message history by pressing the up arrow key.
 
 ## Upcoming Features
 - [ ] send messages character-by-character
-- [ ] send messages by preparing them in an input box
 - [ ] control keys/buttons: pause output, clear output, print a newline right now
 - [ ] configurable EOL behaviour (TX)
 - [ ] configurable EOL behaviour (RX)
@@ -38,6 +38,7 @@ baud-boss
 - [ ] horizontal scrolling of output window
 - [ ] select from known common baud rates
 - [ ] scrolling, scroll bar
+- [ ] pre-load a list of commands/messages to send, and pick from the list
 
 ## Known Issues
 * keybinding in footer are still changing; guess-and-check until you bind some that work

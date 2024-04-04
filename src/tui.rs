@@ -1,4 +1,4 @@
-use crate::app::{App, CurrentScreen};
+use crate::app::{App, CurrentScreen, MainScreenActiveRegion};
 use crate::tui_list_state_tracker::ListStateTracker;
 
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
@@ -137,30 +137,31 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             let send_input_text = match app.main_input_cursor_position {
                 Some(cursor_position) => {
                     let mut input_text = app.main_input.clone();
-                    // let debug_cursor_position_as_char = cursor_position.to_string().chars().nth(0).unwrap();
-                    if app.main_screen_active_region_is_input {
-                        input_text.insert(cursor_position, get_blinking_cursor('|', ' '));
+                    match app.main_screen_active_region {
+                        MainScreenActiveRegion::Input => {
+                            input_text.insert(cursor_position, get_blinking_cursor('|', ' '));
+                        }
+                        _ => {}
                     }
                     input_text
                 },
                 None => {
-                    if app.main_screen_active_region_is_input {
-                        format!("{}{}", app.main_input, get_blinking_cursor('_', ' '))
-                    }
-                    else {
-                        app.main_input.clone()
+                    match app.main_screen_active_region {
+                        MainScreenActiveRegion::Input => {
+                            format!("{}{}", app.main_input, get_blinking_cursor('_', ' '))
+                        }
+                        _ => app.main_input.clone()
                     }
                 }
             };
             let send_input_paragraph = Paragraph::new(Text::raw(send_input_text))
                 .block(Block::default()
                 .borders(Borders::ALL)
-                .border_style({
-                    if app.main_screen_active_region_is_input {
+                .border_style(match app.main_screen_active_region {
+                    MainScreenActiveRegion::Input => {
                         Style::default().fg(Color::Green)
-                    } else {
-                        Style::default()
                     }
+                    _ => Style::default()
                 }) // Set border color to red
                 .title("Send Data"))
                 .wrap(Wrap { trim: false });
@@ -186,12 +187,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             frame.render_widget(incoming_data_paragraph, main_screen_chunks[1]);
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                    .thumb_style({
-                        if app.main_screen_active_region_is_input {
-                            Style::default()
-                        } else {
+                    .thumb_style(match app.main_screen_active_region {
+                        MainScreenActiveRegion::OutputScrollBars => {
                             Style::default().fg(Color::LightGreen)
                         }
+                        _ => Style::default()
                     })
                     .begin_symbol(Some("↑")).end_symbol(Some("↓"))
                     .thumb_symbol("░"), // TOOD: check veritcal thumb symbol
@@ -200,12 +200,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             );
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::HorizontalBottom)
-                    .thumb_style({
-                        if app.main_screen_active_region_is_input {
-                            Style::default()
-                        } else {
+                    .thumb_style(match app.main_screen_active_region {
+                        MainScreenActiveRegion::OutputScrollBars => {
                             Style::default().fg(Color::LightGreen)
                         }
+                        _ => Style::default()
                     })
                     .begin_symbol(Some("◄")).end_symbol(Some("►"))
                     .thumb_symbol("░"),
