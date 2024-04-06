@@ -173,13 +173,13 @@ fn app_handle_keypresses(app: &mut App, key: KeyEvent) -> bool {
 }
 
 fn app_handle_keypresses_for_pick_serial_port_screen(app: &mut App, key: KeyEvent) -> () {
-    // TODO: handle up and down arrows
     match key.code {
-        KeyCode::Char('j') | KeyCode::Down | KeyCode::Right => {
-            app.pick_serial_port_list_state.next();
-        }
-        KeyCode::Char('k') | KeyCode::Up | KeyCode::Left => {
+        // TODO: refactor this list of keys to a standard place (key_codes_left_and_up, key_codes_right_and_down)
+        KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Up | KeyCode::Left => {
             app.pick_serial_port_list_state.previous();
+        }
+        KeyCode::Char('j') | KeyCode::Char('l') | KeyCode::Down | KeyCode::Right => {
+            app.pick_serial_port_list_state.next();
         }
         KeyCode::Enter => {
             // read and store the selected serial port
@@ -208,23 +208,20 @@ fn app_handle_keypresses_for_pick_serial_port_screen(app: &mut App, key: KeyEven
 }
 
 fn app_handle_keypresses_for_pick_baud_rate_screen(app: &mut App, key: KeyEvent) -> () {
-    match extract_modified_key(key) {
-        ModifierWrapper::Control(KeyCode::Backspace) | ModifierWrapper::Control(KeyCode::Char('h')) => {
+    match (key.modifiers, key.code) {
+        (KeyModifiers::CONTROL, KeyCode::Backspace | KeyCode::Char('h')) => {
             // Ctrl+Backspace should clear the field; it comes in as Ctrl+H sometimes
             app.pick_baud_rate_input_field.clear();
         },
-        _ => { }
-    }
-    match key.code {
-        KeyCode::Char('b') => {
+        (KeyModifiers::NONE, KeyCode::Char('b')) => {
             // go back (both 'b' and Ctrl+B)
             app.current_screen = CurrentScreen::PickSerialPort;
         }
-        KeyCode::Char('c') => {
+        (KeyModifiers::NONE, KeyCode::Char('c')) => {
             // clear
             app.pick_baud_rate_input_field.clear();
         }
-        KeyCode::Char(c) => {
+        (KeyModifiers::NONE, KeyCode::Char(c)) => {
             if c.is_ascii_digit() {
                 // silly check to avoid writing a number with a leading zero
                 if (app.pick_baud_rate_input_field.len() > 0)
@@ -234,10 +231,10 @@ fn app_handle_keypresses_for_pick_baud_rate_screen(app: &mut App, key: KeyEvent)
             }
         }
         // TODO: add arrow keys to move cursor
-        KeyCode::Backspace => {
+        (KeyModifiers::NONE, KeyCode::Backspace) => {
             app.pick_baud_rate_input_field.pop();
         }
-        KeyCode::Enter => {
+        (KeyModifiers::NONE, KeyCode::Enter) => {
             // store the baud rate
             let baud_rate = app.pick_baud_rate_input_field.parse::<u32>();
             match baud_rate {
@@ -257,19 +254,19 @@ fn app_handle_keypresses_for_pick_baud_rate_screen(app: &mut App, key: KeyEvent)
 
 fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
     // key handler (main_screen_active_region-independent)
-    match extract_modified_key(key) {
-        ModifierWrapper::Control(KeyCode::Char('?')) => {
+    match (key.modifiers, key.code) {
+        (KeyModifiers::CONTROL, KeyCode::Char('?')) => {
             app.current_screen = CurrentScreen::Help;
         }
-        ModifierWrapper::Control(KeyCode::Char('b')) => {
+        (KeyModifiers::CONTROL, KeyCode::Char('b')) => {
             // TODO: if the PickBaudRate screen was skipped, then going back should skip right to the PickSerialPort screen
             app.current_screen = CurrentScreen::PickBaudRate;
         }
 
-        ModifierWrapper::Normal(KeyCode::Esc) | ModifierWrapper::Normal(KeyCode::Tab) => {
+        (KeyModifiers::NONE, KeyCode::Esc | KeyCode::Tab) => {
             app.main_screen_active_region = app.main_screen_active_region.next();
         }
-        ModifierWrapper::Shift(KeyCode::Tab) | ModifierWrapper::Normal(KeyCode::BackTab) => {
+        (KeyModifiers::SHIFT, KeyCode::Tab) | (KeyModifiers::NONE, KeyCode::BackTab) => {
             app.main_screen_active_region = app.main_screen_active_region.prev();
         }
         _ => {}
@@ -277,8 +274,8 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
 
     match app.main_screen_active_region {
         MainScreenActiveRegion::Input => {
-            match extract_modified_key(key) {
-                ModifierWrapper::Control(KeyCode::Char('h')) | ModifierWrapper::Control(KeyCode::Backspace) => {
+            match (key.modifiers, key.code) {
+                (KeyModifiers::CONTROL, KeyCode::Char('h') | KeyCode::Backspace) => {
                     // Ctrl+Backspace should delete the last word
                     app.main_input = app.main_input.trim_end().to_string(); // first, remove all trailing spaces
 
@@ -292,7 +289,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 }
 
                 // left and right arrow keys to move the cursor
-                ModifierWrapper::Normal(KeyCode::Left) => {
+                (KeyModifiers::NONE, KeyCode::Left) => {
                     // move the cursor left
                     match app.main_input_cursor_position {
                         Some(pos) => {
@@ -307,7 +304,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                         }
                     }
                 }
-                ModifierWrapper::Normal(KeyCode::Right) => {
+                (KeyModifiers::NONE, KeyCode::Right) => {
                     // move the cursor right
                     match app.main_input_cursor_position {
                         Some(pos) => {
@@ -323,16 +320,16 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 }
                 
                 // home and end keys to jump the cursor
-                ModifierWrapper::Normal(KeyCode::Home) => {
+                (KeyModifiers::NONE, KeyCode::Home) => {
                     if app.main_input.len() > 0 {
                         app.main_input_cursor_position = Some(0);
                     }
                 }
-                ModifierWrapper::Normal(KeyCode::End) => {
+                (KeyModifiers::NONE, KeyCode::End) => {
                     app.main_input_cursor_position = None;
                 }
 
-                ModifierWrapper::Normal(KeyCode::Up) => {
+                (KeyModifiers::NONE, KeyCode::Up) => {
                     // go back in the send history
                     app.main_input_cursor_position = None;
                     match app.main_input_send_history_index {
@@ -351,7 +348,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                         }
                     }
                 }
-                ModifierWrapper::Normal(KeyCode::Down) => {
+                (KeyModifiers::NONE, KeyCode::Down) => {
                     app.main_input_cursor_position = None;
                     // go forward in the send history
                     match app.main_input_send_history_index {
@@ -375,7 +372,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 }
                 
 
-                ModifierWrapper::Normal(KeyCode::Char(c)) => {
+                (KeyModifiers::NONE | KeyModifiers::SHIFT, KeyCode::Char(c)) => {
                     match app.main_input_cursor_position {
                         Some(pos) => {
                             app.main_input.insert(pos, c);
@@ -386,10 +383,10 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                         }
                     }
                 }
-                ModifierWrapper::Normal(KeyCode::Backspace) => {
+                (KeyModifiers::NONE, KeyCode::Backspace) => {
                     app.main_input.pop();
                 }
-                ModifierWrapper::Normal(KeyCode::Enter) => {
+                (KeyModifiers::NONE, KeyCode::Enter) => {
                     match &mut app.bound_serial_port {
                         Some(port) => {
                             let data = app.main_input.as_bytes();
@@ -536,38 +533,20 @@ fn is_keypress_quit_event(key: KeyEvent, is_q_quit: bool) -> bool {
     if key.kind == event::KeyEventKind::Release {
         return false;
     }
-    match extract_modified_key(key) {
-        ModifierWrapper::Control(KeyCode::Char('c')) => {
+    match (key.modifiers, key.code) {
+        (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
             return true;
         }
-        ModifierWrapper::Control(KeyCode::Char('q')) => {
+        (KeyModifiers::CONTROL, KeyCode::Char('q')) => {
             return true;
         }
-        ModifierWrapper::Normal(KeyCode::Char(']')) => {
+        (KeyModifiers::NONE, KeyCode::Char(']')) => {
             return true;
         }
-        ModifierWrapper::Normal(KeyCode::Char('q')) => {
+        (KeyModifiers::NONE, KeyCode::Char('q')) => {
             return is_q_quit;
         }
         _ => {}
     }
     false
-}
-
-fn extract_modified_key(key: KeyEvent) -> ModifierWrapper {
-    match key.modifiers {
-        KeyModifiers::CONTROL => {
-            return ModifierWrapper::Control(key.code);
-        }
-        _ => {
-            return ModifierWrapper::Normal(key.code);
-        }
-    }
-}
-
-// TODO: get this working
-enum ModifierWrapper {
-    Control(KeyCode),
-    Normal(KeyCode),
-    Shift(KeyCode),
 }
