@@ -98,3 +98,24 @@ pub enum MainScreenActiveRegion {
     OutputScrollBars,
     InputEolChoice,
 }
+
+impl MainScreenActiveRegion {
+    pub fn next(&self) -> MainScreenActiveRegion {
+        match self {
+            MainScreenActiveRegion::Input => MainScreenActiveRegion::OutputScrollBars,
+            MainScreenActiveRegion::OutputScrollBars => MainScreenActiveRegion::InputEolChoice,
+
+            // wrap around
+            MainScreenActiveRegion::InputEolChoice => MainScreenActiveRegion::Input,
+        }
+    }
+
+    pub fn prev(&self) -> MainScreenActiveRegion {
+        match self {
+            // wrap around
+            MainScreenActiveRegion::Input => MainScreenActiveRegion::InputEolChoice,
+            MainScreenActiveRegion::OutputScrollBars => MainScreenActiveRegion::Input,
+            MainScreenActiveRegion::InputEolChoice => MainScreenActiveRegion::OutputScrollBars,
+        }
+    }
+}

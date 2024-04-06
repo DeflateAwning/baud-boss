@@ -13,7 +13,7 @@ baud-boss
 ```
 
 ## Features
-* See RX'd data.
+* View RX'd (incoming) data.
 * Send messages by preparing them in an input box.
 * Access sent message history by pressing the up arrow key.
 
