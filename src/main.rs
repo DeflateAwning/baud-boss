@@ -79,6 +79,10 @@ fn run_app<B: Backend>(
                     if app_handle_keypresses(app, key) {
                         break;
                     }
+
+                    app.main_incoming_serial_data.push_str(
+                        &format!("\nKey Log: key.modifiers={:?}, key.code={:?}\n",
+                        key.modifiers, key.code));
                 }
             }
         }
@@ -266,7 +270,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
         (KeyModifiers::NONE, KeyCode::Esc | KeyCode::Tab) => {
             app.main_screen_active_region = app.main_screen_active_region.next();
         }
-        (KeyModifiers::SHIFT, KeyCode::Tab) | (KeyModifiers::NONE, KeyCode::BackTab) => {
+        (KeyModifiers::SHIFT, KeyCode::Tab) | (_, KeyCode::BackTab) => {
             app.main_screen_active_region = app.main_screen_active_region.prev();
         }
         _ => {}
@@ -384,12 +388,44 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                     }
                 }
                 (KeyModifiers::NONE, KeyCode::Backspace) => {
-                    app.main_input.pop();
+                    match app.main_input_cursor_position {
+                        Some(main_input_cursor_position) => {
+                            if (app.main_input.len() > 0) && (main_input_cursor_position > 0) {
+                                app.main_input.remove(main_input_cursor_position - 1);
+                                app.main_input_cursor_position = Some(main_input_cursor_position - 1);
+                            }
+                            if main_input_cursor_position == app.main_input.len() {
+                                // if we're now back at the new end, mark as such
+                                app.main_input_cursor_position = None
+                            }
+                        }
+                        None => {
+                            app.main_input.pop();
+                        }
+                    }
                 }
+                (KeyModifiers::NONE, KeyCode::Delete) => {
+                    match app.main_input_cursor_position {
+                        Some(main_input_cursor_position) => {
+                            if main_input_cursor_position < app.main_input.len() {
+                                app.main_input.remove(main_input_cursor_position);
+
+                                if main_input_cursor_position == app.main_input.len() {
+                                    app.main_input_cursor_position = None;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // TODO: control+enter and shift+enter should allow adding newlines within a text block
                 (KeyModifiers::NONE, KeyCode::Enter) => {
                     match &mut app.bound_serial_port {
                         Some(port) => {
-                            let data = app.main_input.as_bytes();
+                            let mut data_string = app.main_input.clone();
+                            data_string.push_str(&app.app_config.end_of_line);
+                            let data = data_string.as_bytes();
+
                             match port.write(data) {
                                 Ok(_) => {
                                     app.main_input_send_history.push(app.main_input.clone());
@@ -461,8 +497,9 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
         MainScreenActiveRegion::InputEolChoice => {
             // left and right cycle through the choices
             let eol_choices = vec!["", "\n", "\r", "\r\n", "\n\r"];
+            let current_eol_idx: Option<usize> = eol_choices.iter().position(
+                |&eol| eol == app.app_config.end_of_line);
             
-
             // Up, Left - move 
             match key.code {
                 KeyCode::Esc => {
@@ -470,8 +507,20 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                     app.main_screen_active_region = MainScreenActiveRegion::Input;
                 }
 
-                // arr
-                // FIXME: start here: add left and right actions to change the EOL character
+                KeyCode::Left => {
+                    app.app_config.end_of_line = eol_choices[
+                        if current_eol_idx.unwrap_or(0) > 0 {
+                            current_eol_idx.expect("Wrapping if statement lied") - 1
+                        } else {
+                            eol_choices.len() - 1
+                        }
+                    ].to_string();
+                }
+                KeyCode::Right => {
+                    app.app_config.end_of_line = eol_choices[
+                        current_eol_idx.unwrap().saturating_add(1) % eol_choices.len()
+                    ].to_string();
+                }
                 _ => {}
             }
         }

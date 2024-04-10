@@ -114,7 +114,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             // TODO: add option to show hex-and-ascii side-by-side
             let size = frame.size();
             let main_screen_chunks = Layout::vertical([
-                Constraint::Length(3), // TODO: make the input part grow as needed, but be as small as possible
+                Constraint::Length(5), // TODO: make the input part grow as needed, but be as small as possible
                 Constraint::Min(0),
                 Constraint::Length(3),
             ])
@@ -154,7 +154,18 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     }
                 }
             };
-            let send_input_paragraph = Paragraph::new(Text::raw(send_input_text))
+
+            // TODO: wrap the EOL character in a box with borders, maybe (and/or highlight the borders when MainScreenActiveRegion::InputEolChoice)
+            let send_input_paragraph_lines: Vec<Line> = vec![
+                Line::from(send_input_text),
+                Line::from(app.app_config.end_of_line.replace("\n", "\\n").replace("\r", "\\r"))
+                    .style(match app.main_screen_active_region {
+                        MainScreenActiveRegion::InputEolChoice =>
+                            Style::default().fg(Color::Green),
+                        _ => Style::default().fg(Color::Gray)
+                    }).alignment(Alignment::Right),
+            ];
+            let send_input_paragraph = Paragraph::new(send_input_paragraph_lines)
                 .block(Block::default()
                 .borders(Borders::ALL)
                 .border_style(match app.main_screen_active_region {
