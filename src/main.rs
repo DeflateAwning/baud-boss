@@ -66,6 +66,14 @@ fn run_app<B: Backend>(
     app: &mut App,
 ) -> io::Result<()> {
     
+    // TODO: make this configurable
+    // DEBUG
+    // Fill the display with a bunch of fake data
+    for i in 0_i32..200_i32 {
+        let fake_data = format!("Fake Incoming Data, line {}: {}\n",
+            i, ".".repeat((100_i32-i).abs() as usize));
+        app.main_incoming_serial_data.push_str(&fake_data);
+    }
 
     loop {
         terminal.draw(|f| ui(f, app))?;
@@ -80,9 +88,12 @@ fn run_app<B: Backend>(
                         break;
                     }
 
-                    app.main_incoming_serial_data.push_str(
-                        &format!("\nKey Log: key.modifiers={:?}, key.code={:?}\n",
-                        key.modifiers, key.code));
+                    // TODO: setup these DEBUG methods as configuration options
+                    // DEBUG
+                    // app.main_incoming_serial_data.push_str(
+                    //     &format!("\nKey Log: key.modifiers={:?}, key.code={:?}\n",
+                    //     key.modifiers, key.code));
+
                 }
             }
         }
@@ -458,6 +469,8 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 // TODO: change scroll bindings
                 // TODO: check scroll repeat rate
                 // TODO: add mouse binding
+                // TODO: handle moving in diagonal directions
+                // TODO: handle page-up/page-down
                 // Scroll array bindings
                 KeyCode::Char('j') | KeyCode::Down => {
                     app.main_screen_vertical_scroll_val = 

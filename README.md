@@ -39,6 +39,7 @@ baud-boss
 - [ ] select from known common baud rates
 - [ ] scrolling, scroll bar
 - [ ] pre-load a list of commands/messages to send, and pick from the list
+- [ ] incoming characters-per-second and lines-per-second counter
 
 ## Known Issues
 * keybinding in footer are still changing; guess-and-check until you find some that work
