@@ -95,24 +95,24 @@ pub struct AppConfig {
 
 pub enum MainScreenActiveRegion {
     Input,
-    InputEolChoice,
+    InputEolChoice, // PERMANENTLY DISABLED, for now
     OutputScrollBars,
 }
 
 impl MainScreenActiveRegion {
     pub fn next(&self) -> MainScreenActiveRegion {
         match self {
-            MainScreenActiveRegion::Input => MainScreenActiveRegion::InputEolChoice,
-            MainScreenActiveRegion::InputEolChoice => MainScreenActiveRegion::OutputScrollBars,
+            MainScreenActiveRegion::Input => MainScreenActiveRegion::OutputScrollBars,
             MainScreenActiveRegion::OutputScrollBars => MainScreenActiveRegion::Input,
+            MainScreenActiveRegion::InputEolChoice => unimplemented!(),
         }
     }
 
     pub fn prev(&self) -> MainScreenActiveRegion {
         match self {
             MainScreenActiveRegion::Input => MainScreenActiveRegion::OutputScrollBars,
-            MainScreenActiveRegion::InputEolChoice => MainScreenActiveRegion::Input,
-            MainScreenActiveRegion::OutputScrollBars => MainScreenActiveRegion::InputEolChoice,
+            MainScreenActiveRegion::OutputScrollBars => MainScreenActiveRegion::Input,
+            MainScreenActiveRegion::InputEolChoice => unimplemented!(),
         }
     }
 }

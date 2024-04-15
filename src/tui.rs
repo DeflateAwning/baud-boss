@@ -7,6 +7,7 @@ use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::scrollbar;
 use ratatui::text::{Line, Masked, Text};
+use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use ratatui::widgets::{Block, Borders, Wrap};
 use ratatui::Frame;
@@ -136,25 +137,37 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 }
             };
             // TODO: wrap the EOL character in a box with borders, maybe (and/or highlight the borders when MainScreenActiveRegion::InputEolChoice)
+            let eol_as_repr_string = if app.app_config.end_of_line == "" {
+                "''".to_string() // empty string for "no EOL character"
+            } else {
+                app.app_config.end_of_line.replace("\n", "\\n").replace("\r", "\\r")
+            };
             let send_input_paragraph_lines: Vec<Line> = vec![
                 Line::from(send_input_text),
-                Line::from(app.app_config.end_of_line.replace("\n", "\\n").replace("\r", "\\r"))
-                    .style(match app.main_screen_active_region {
-                        MainScreenActiveRegion::InputEolChoice =>
-                            Style::default().fg(Color::Green),
-                        _ => Style::default().fg(Color::Gray)
-                    }).alignment(Alignment::Right),
             ];
             let send_input_paragraph = Paragraph::new(send_input_paragraph_lines)
-                .block(Block::default()
-                .borders(Borders::ALL)
-                .border_style(match app.main_screen_active_region {
-                    MainScreenActiveRegion::Input => {
-                        Style::default().fg(Color::Green)
-                    }
-                    _ => Style::default()
-                }) // Set border color to red
-                .title("Send Data")) // TODO: when it overflows, somewhere make sure we're always at the bottom of the content
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(match app.main_screen_active_region {
+                            MainScreenActiveRegion::Input => {
+                                Style::default().fg(Color::Green)
+                            }
+                            _ => Style::default()
+                        }) // Set border color to red
+                        .title("Send Data") // TODO: when it overflows, somewhere make sure we're always at the bottom of the content
+                        .title(
+                            Title::default()
+                                .content(format!("EOL: {}", eol_as_repr_string))
+                                .position(Position::Bottom)
+                                .alignment(Alignment::Right)
+                                // .style(match app.main_screen_active_region {
+                                //     MainScreenActiveRegion::InputEolChoice =>
+                                //         Style::default().fg(Color::Green),
+                                //     _ => Style::default().fg(Color::Gray)
+                                // })
+                        )
+                )
                 .wrap(Wrap { trim: false });
             // TODO: if showing history, show the negative index of the history in the "Send Data" text
             // TODO: show if immediate or on-enter
@@ -173,7 +186,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             let top_element_height: u16 = min(
                 (total_screen_height as f32 * 0.6).round() as u16,
                 required_send_input_height,
-            );
+            ).max(3); // 3 is the absolute minimum height for the top element
             // TODO: deal with case where top_element_height < required_send_input_height here (scrolling indicator, etc.)
 
             let debug_str: String = format!("DEBUG: required_lines_for_send_input_paragraph={}, required_send_input_height={}, top_element_height={} \n", 
