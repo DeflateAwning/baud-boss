@@ -40,6 +40,7 @@ baud-boss
 - [ ] scrolling, scroll bar
 - [ ] pre-load a list of commands/messages to send, and pick from the list
 - [ ] incoming characters-per-second and lines-per-second counter
+- [ ] receive and format incoming ndjson (aka jsonl) data
 
 ## Known Issues
 * keybinding in footer are still changing; guess-and-check until you find some that work

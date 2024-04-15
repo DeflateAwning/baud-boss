@@ -1,3 +1,5 @@
+use std::cmp::{max, min};
+
 use crate::app::{App, CurrentScreen, MainScreenActiveRegion};
 use crate::tui_list_state_tracker::ListStateTracker;
 
@@ -112,28 +114,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         },
         CurrentScreen::Main => {
             // TODO: add option to show hex-and-ascii side-by-side
-            let size = frame.size();
-            let main_screen_chunks = Layout::vertical([
-                Constraint::Length(5), // TODO: make the input part grow as needed, but be as small as possible
-                Constraint::Min(0),
-                Constraint::Length(3),
-            ])
-            .split(size);
 
-            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
-            // let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
-            //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
-            //     .wrap(Wrap { trim: true });
-
-            let was_incoming_data_scroll_at_bottom: bool = app.main_screen_vertical_scroll_state.is_at_bottom();
-
-            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
-            let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
-            let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
-
-            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
-            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
-            
             let send_input_text = match app.main_input_cursor_position {
                 Some(cursor_position) => {
                     let mut input_text = app.main_input.clone();
@@ -154,7 +135,6 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     }
                 }
             };
-
             // TODO: wrap the EOL character in a box with borders, maybe (and/or highlight the borders when MainScreenActiveRegion::InputEolChoice)
             let send_input_paragraph_lines: Vec<Line> = vec![
                 Line::from(send_input_text),
@@ -174,12 +154,54 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     }
                     _ => Style::default()
                 }) // Set border color to red
-                .title("Send Data"))
+                .title("Send Data")) // TODO: when it overflows, somewhere make sure we're always at the bottom of the content
                 .wrap(Wrap { trim: false });
             // TODO: if showing history, show the negative index of the history in the "Send Data" text
             // TODO: show if immediate or on-enter
             // TODO: show if hex or ascii
             // TODO: in immediate mode, flash the characters here for a sec after sending (maybe 500ms)
+
+
+            let size = frame.size();
+            let total_screen_height = size.height;
+            let input_box_width = size.width - 2; // subtract 2 for the borders
+            let required_lines_for_send_input_paragraph = send_input_paragraph.line_count(input_box_width);
+            let required_send_input_height: u16 = (required_lines_for_send_input_paragraph as u16).max(1) + 2_u16;
+            
+            // top_element_height should be from 3 (min) to required_send_input_height+2 (ideal),
+            //  but should be limited to `total_screen_height*0.4`
+            let top_element_height: u16 = min(
+                (total_screen_height as f32 * 0.6).round() as u16,
+                required_send_input_height,
+            );
+            // TODO: deal with case where top_element_height < required_send_input_height here (scrolling indicator, etc.)
+
+            let debug_str: String = format!("DEBUG: required_lines_for_send_input_paragraph={}, required_send_input_height={}, top_element_height={} \n", 
+                required_lines_for_send_input_paragraph,
+                required_send_input_height, top_element_height);
+            app.main_incoming_serial_data.insert_str(0, debug_str.as_str());
+            let main_screen_chunks = Layout::vertical([
+                Constraint::Length(top_element_height),
+                Constraint::Min(3),
+                Constraint::Length(3),
+            ])
+            .split(size);
+
+            let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
+            // let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
+            //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
+            //     .wrap(Wrap { trim: true });
+
+            let was_incoming_data_scroll_at_bottom: bool = app.main_screen_vertical_scroll_state.is_at_bottom();
+
+            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
+            let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
+            let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
+
+            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
+            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
+            
+
             frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
