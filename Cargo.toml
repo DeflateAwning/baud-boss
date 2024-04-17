@@ -16,9 +16,10 @@ clap = { version = "4.5.4", features = ["derive"] }
 crossterm = "0.27.0"
 
 [dependencies.ratatui]
-version = "0.26.1"
-# ratatui for the Terminal UI
-# ratatui = "0.26.1"
+# version = "0.26.2"
 # git = "https://github.com/DeflateAwning/ratatui.git"
 # branch = "da-scrollbar-is_at_bottom"
+
+git = "https://github.com/EdJoPaTo/ratatui.git"
+branch = "scrollbar-overscroll"
 features = ["unstable-rendered-line-info"]

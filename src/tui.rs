@@ -137,11 +137,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 }
             };
             // TODO: wrap the EOL character in a box with borders, maybe (and/or highlight the borders when MainScreenActiveRegion::InputEolChoice)
-            let eol_as_repr_string = if app.app_config.end_of_line == "" {
-                "''".to_string() // empty string for "no EOL character"
-            } else {
-                app.app_config.end_of_line.replace("\n", "\\n").replace("\r", "\\r")
-            };
+            let eol_as_repr_string = app.app_config.end_of_line
+                .replace("\n", "\\n").replace("\r", "\\r");
             let send_input_paragraph_lines: Vec<Line> = vec![
                 Line::from(send_input_text),
             ];
@@ -158,7 +155,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         .title("Send Data") // TODO: when it overflows, somewhere make sure we're always at the bottom of the content
                         .title(
                             Title::default()
-                                .content(format!("EOL: {}", eol_as_repr_string))
+                                .content(format!("EOL: '{}'", eol_as_repr_string))
                                 .position(Position::Bottom)
                                 .alignment(Alignment::Right)
                                 // .style(match app.main_screen_active_region {
@@ -189,10 +186,10 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             ).max(3); // 3 is the absolute minimum height for the top element
             // TODO: deal with case where top_element_height < required_send_input_height here (scrolling indicator, etc.)
 
-            let debug_str: String = format!("DEBUG: required_lines_for_send_input_paragraph={}, required_send_input_height={}, top_element_height={} \n", 
-                required_lines_for_send_input_paragraph,
-                required_send_input_height, top_element_height);
-            app.main_incoming_serial_data.insert_str(0, debug_str.as_str());
+            // let debug_str: String = format!("DEBUG: required_lines_for_send_input_paragraph={}, required_send_input_height={}, top_element_height={} \n", 
+            //     required_lines_for_send_input_paragraph,
+            //     required_send_input_height, top_element_height);
+            // app.main_incoming_serial_data.insert_str(0, debug_str.as_str());
             let main_screen_chunks = Layout::vertical([
                 Constraint::Length(top_element_height),
                 Constraint::Min(3),
@@ -205,7 +202,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
             //     .wrap(Wrap { trim: true });
 
-            let was_incoming_data_scroll_at_bottom: bool = app.main_screen_vertical_scroll_state.is_at_bottom();
+            let was_incoming_data_scroll_at_bottom: bool = false; // TODO: figure this out based on sizing // app.main_screen_vertical_scroll_state.is_at_bottom();
 
             let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
             let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
@@ -230,6 +227,38 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     app.main_screen_vertical_scroll_val as u16,
                     app.main_screen_horizontal_scroll_val as u16));
 
+            // TODO: refactor this clamping into a function, and try to apply it at the keyhandler level remove the jitter/vibrate
+            // Right before rendering, perform a check on the vertical scroll position.
+            // Clamp the value so the last line is at the bottom of the block.
+            let incoming_data_paragraph_width = size.width - 2; // subtract 2 for the borders
+            let incoming_data_paragraph_lines_count = incoming_data_paragraph.line_count(incoming_data_paragraph_width);
+            let incoming_data_viewport_height: usize = main_screen_chunks[1].height as usize - 2; // subtract 2 for borders
+            if (app.main_screen_vertical_scroll_val + incoming_data_viewport_height) > incoming_data_paragraph_lines_count {
+                app.main_screen_vertical_scroll_val = (
+                    (incoming_data_paragraph_lines_count as i64)
+                        - (incoming_data_viewport_height as i64)
+                        + 1 // show an empty line at the bottom, why not
+                    ).max(0) as usize;
+            } // FIXME: it vibrates when it's at the bottom and you're typing in the input box
+
+            // Right before rendering, perform a check on the horizontal scroll position.
+            // Clamp the value so the last character is at the right of the block.
+            let incoming_data_paragraph_longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
+            let incoming_data_viewport_width: usize = main_screen_chunks[1].width as usize - 2; // subtract 2 for borders
+            if (app.main_screen_horizontal_scroll_val + incoming_data_viewport_width) > incoming_data_paragraph_longest_line_length {
+                app.main_screen_horizontal_scroll_val = (
+                    (incoming_data_paragraph_longest_line_length as i64)
+                        - (incoming_data_viewport_width as i64)
+                        + 1 // show an empty col at the right, why not
+                    ).max(0) as usize;
+            } // FIXME: it vibrates when it's at the right and you're typing in the input box
+
+            // create the scrollbar state
+            app.main_screen_vertical_scroll_state =
+                app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
+            app.main_screen_horizontal_scroll_state =
+                app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+
             frame.render_widget(incoming_data_paragraph, main_screen_chunks[1]);
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
@@ -240,7 +269,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         _ => Style::default()
                     })
                     .begin_symbol(Some("↑")).end_symbol(Some("↓"))
-                    .thumb_symbol("░"), // TOOD: check veritcal thumb symbol
+                    .thumb_symbol("░")
+                    .hide_when_not_scrollable(true)
+                    .include_overscroll(false), // TOOD: check veritcal thumb symbol
                 main_screen_chunks[1],
                 &mut app.main_screen_vertical_scroll_state,
             );
@@ -253,7 +284,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                         _ => Style::default()
                     })
                     .begin_symbol(Some("◄")).end_symbol(Some("►"))
-                    .thumb_symbol("░"),
+                    .thumb_symbol("░")
+                    .hide_when_not_scrollable(true)
+                    .include_overscroll(false),
                 main_screen_chunks[1].inner(&Margin {
                     vertical: 0,
                     horizontal: 1,

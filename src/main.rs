@@ -69,8 +69,8 @@ fn run_app<B: Backend>(
     // TODO: make this configurable
     // DEBUG
     // Fill the display with a bunch of fake data
-    for i in 0_i32..200_i32 {
-        let fake_data = format!("Fake Incoming Data, line {}: {}\n",
+    for i in 0_i32..=120_i32 {
+        let fake_data = format!("Fake Incoming Data, line {}/120: {}\n",
             i, ".".repeat((100_i32-i).abs() as usize));
         app.main_incoming_serial_data.push_str(&fake_data);
     }
@@ -475,26 +475,18 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 KeyCode::Char('j') | KeyCode::Down => {
                     app.main_screen_vertical_scroll_val = 
                         app.main_screen_vertical_scroll_val.saturating_add(1);
-                    app.main_screen_vertical_scroll_state =
-                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
                     app.main_screen_vertical_scroll_val = 
                         app.main_screen_vertical_scroll_val.saturating_sub(1);
-                    app.main_screen_vertical_scroll_state =
-                        app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
                 }
                 KeyCode::Char('h') | KeyCode::Left => {
                     app.main_screen_horizontal_scroll_val = 
                         app.main_screen_horizontal_scroll_val.saturating_sub(1);
-                    app.main_screen_horizontal_scroll_state =
-                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
                 }
                 KeyCode::Char('l') | KeyCode::Right => {
                     app.main_screen_horizontal_scroll_val = 
                         app.main_screen_horizontal_scroll_val.saturating_add(1);
-                    app.main_screen_horizontal_scroll_state =
-                        app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
                 }
                 
                 // TODO: home/end/pageup/pagedown
