@@ -3,7 +3,7 @@ mod tui;
 mod tui_list_state_tracker;
 mod serial;
 
-use app::{App, AppConfig, CurrentScreen, MainScreenActiveRegion};
+use app::{App, AppConfig, CurrentScreen, MainScreenActiveRegion, EchoMode};
 use tui::ui;
 use serial::bind_serial_port;
 
@@ -72,7 +72,7 @@ fn run_app<B: Backend>(
     for i in 0_i32..=120_i32 {
         let fake_data = format!("Fake Incoming Data, line {}/120: {}\n",
             i, ".".repeat((100_i32-i).abs() as usize));
-        app.main_incoming_serial_data.push_str(&fake_data);
+        app.add_new_incoming_serial_data(fake_data.into_bytes());
     }
 
     loop {
@@ -108,7 +108,7 @@ fn run_app<B: Backend>(
                         }
                     }
                     Err(e) => {
-                        app.main_incoming_serial_data.push_str(&format!("Error checking bytes to read: {}", e));
+                        app.add_new_incoming_error_data(format!("Error checking bytes to read: {}", e));
                     }
                 }
             }
@@ -129,8 +129,17 @@ fn app_handle_incoming_serial_data(app: &mut App) -> () {
         Ok(bytes_read_count) => {
             if bytes_read_count > 0 {
                 let data = &serial_buf[..bytes_read_count];
-                let data_str = std::str::from_utf8(data).expect("Invalid UTF-8 chars, FIXME"); // FIXME: horrible unwrap here; this will have issues
-                app.main_incoming_serial_data.push_str(data_str); // TODO: delete very old data from this buffer to prevent memory leak
+                match std::str::from_utf8(data) {
+                    Ok(data_str) => {
+                        app.add_new_incoming_serial_data(data_str.to_string().into_bytes());
+                    }
+                    Err(_) => {
+                        // FIXME: still show the data somehow (hex or similar)
+                        app.add_new_incoming_error_data(
+                            format!("Error converting incoming data to UTF-8"));
+                    }
+                }
+                // TODO: delete very old data from this buffer to prevent memory leak
                 // TODO: push the data with color formatting maybe (for different types of data [e.g., EOL, end-of-message, non-printable-as-hex, etc.])
                 // TODO: write to files/logs, etc.
             }
@@ -139,7 +148,8 @@ fn app_handle_incoming_serial_data(app: &mut App) -> () {
             // do nothing
         }
         Err(e) => {
-            app.main_incoming_serial_data.push_str(&format!("Error reading from serial port: {}", e));
+            app.add_new_incoming_error_data(
+                format!("Error reading from serial port: {}", e));
         }
     }
 }
@@ -441,6 +451,16 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                                 Ok(_) => {
                                     app.main_input_send_history.push(app.main_input.clone());
                                     app.main_input_send_history_index = None;
+
+                                    match app.app_config.echo_mode {
+                                        EchoMode::On => {
+                                            // TODO: show newline chars well
+                                            app.add_new_incoming_echo_data(
+                                                app.main_input.clone().into_bytes());
+                                        }
+                                        EchoMode::Off => {}
+                                    }
+
                                     app.main_input.clear();
                                     app.main_input_cursor_position = None;
                                 }
@@ -449,9 +469,11 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                                     app.main_input.push_str(&format!("Error writing to serial port: {}", e));
                                 }
                             }
+
                         }
                         None => {
                             // this should never really happen
+                            // TODO: move this error message to the other side
                             app.main_input.push_str("Error: Serial port unbound itself between seeing if bytes are available, and reading them.");
                         }
                     }
@@ -470,7 +492,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 // TODO: check scroll repeat rate
                 // TODO: add mouse binding
                 // TODO: handle moving in diagonal directions
-                // TODO: handle page-up/page-down
+                
                 // Scroll array bindings
                 KeyCode::Char('j') | KeyCode::Down => {
                     app.main_screen_vertical_scroll_val = 
@@ -489,7 +511,32 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                         app.main_screen_horizontal_scroll_val.saturating_add(1);
                 }
                 
-                // TODO: home/end/pageup/pagedown
+                KeyCode::Home => {
+                    app.main_screen_horizontal_scroll_val = 0;
+                }
+                KeyCode::End => {
+                    app.main_screen_horizontal_scroll_val = u32::MAX as usize;
+                }
+
+                KeyCode::PageUp => {
+                    if key.modifiers == KeyModifiers::CONTROL {
+                        app.main_screen_vertical_scroll_val = 0;
+                    }
+                    else {
+                        app.main_screen_vertical_scroll_val = 
+                            app.main_screen_vertical_scroll_val.saturating_sub(10);
+                    }
+                }
+                KeyCode::PageDown => {
+                    if key.modifiers == KeyModifiers::CONTROL {
+                        // FIXME: haha this isn't very good, but it works
+                        app.main_screen_vertical_scroll_val = 0xFFF
+                    }
+                    else {
+                        app.main_screen_vertical_scroll_val = 
+                            app.main_screen_vertical_scroll_val.saturating_add(10);
+                    }
+                }
 
 
                 KeyCode::Enter => {

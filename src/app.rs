@@ -23,11 +23,11 @@ pub struct App {
     // TODO: pick_baud_rate_active_list options
 
     pub main_input: String, // TODO: maybe make this a Vec<u8> instead, probably
-    pub main_input_send_history: Vec<String>,
+    pub main_input_send_history: Vec<String>, // for up-arrow history
     pub main_input_send_history_index: Option<usize>,
     pub main_input_typing_in_progress_but_not_sent: Option<String>, // so that if you look through the send history, you can still send the current in-progress message
     pub main_input_cursor_position: Option<usize>,
-    pub main_incoming_serial_data: String,
+    pub main_incoming_serial_data: Vec<IncomingDataType>,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
 
@@ -42,13 +42,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             current_screen: CurrentScreen::PickSerialPort,
-            app_config: AppConfig {
-                baud_rate: None,
-                end_of_line: String::from("\n"),
-                data_bits: 8,
-                parity: serialport5::Parity::None,
-                stop_bits: serialport5::StopBits::One,
-            },
+            app_config: AppConfig::default(),
 
             pick_serial_port_list_state: ListStateTracker::default(),
             selected_serial_port: None,
@@ -61,7 +55,7 @@ impl App {
             main_input_send_history_index: None,
             main_input_typing_in_progress_but_not_sent: None,
             main_input_cursor_position: None,
-            main_incoming_serial_data: String::new(),
+            main_incoming_serial_data: Vec::new(),
 
             bound_serial_port: None,
 
@@ -73,6 +67,39 @@ impl App {
         }
     }
     
+    pub fn add_new_incoming_serial_data(&mut self, new_data: Vec<u8>) {
+        self.main_incoming_serial_data.push(
+            IncomingDataType::SerialData(
+                // FIXME: improve support for non-UTF-8 data
+                String::from_utf8(new_data).expect("Incoming serial data should be UTF-8, for now")
+            )
+        );
+    }
+
+    pub fn add_new_incoming_echo_data(&mut self, new_data: Vec<u8>) {
+        self.main_incoming_serial_data.push(
+            IncomingDataType::EchoData(
+                // TODO: remove clone one we're done with debugging
+                String::from_utf8(new_data.clone()).expect("Data to send should be UTF-8, for now")
+            )
+        );
+        println!("add_new_incoming_echo_data: new_len={}, new_data.len()={}, {:?}",
+            self.main_incoming_serial_data.len(), new_data.len(), new_data);
+    }
+
+    pub fn add_new_incoming_error_data(&mut self, new_data: String) {
+        println!("add_new_incoming_error_data: {}", new_data);
+        self.main_incoming_serial_data.push(
+            IncomingDataType::ErrorData(new_data)
+        );
+    }
+}
+
+pub enum IncomingDataType {
+    SerialData(String),
+    EchoData(String),
+    ErrorData(String),
+    // TODO: maybe other
 }
 
 pub struct AppConfig {
@@ -82,15 +109,32 @@ pub struct AppConfig {
     
     pub end_of_line: String,
 
-    // 8N1 parameters // TODO: do something with these
+    // 8N1 parameters // FIXME: do something with these; they're not used yet in the init
     pub data_bits: u8,
     pub parity: serialport5::Parity,
     pub stop_bits: serialport5::StopBits,
 
+
+
     // pub line_wrap: bool, // TODO: implement line wrap
     // pub show_borders: bool, // TODO: implement show/hide borders
     // pub show_help: bool, // TODO: implement show/hide help at bottom
-    // TODO: echo on or off
+    pub echo_mode: EchoMode,
+
+}
+
+impl AppConfig {
+    pub fn default() -> Self {
+        Self {
+            baud_rate: None,
+            end_of_line: String::from("\n"),
+            data_bits: 8,
+            parity: serialport5::Parity::None,
+            stop_bits: serialport5::StopBits::One,
+
+            echo_mode: EchoMode::On,
+        }
+    }
 }
 
 pub enum MainScreenActiveRegion {
@@ -116,3 +160,9 @@ impl MainScreenActiveRegion {
         }
     }
 }
+
+pub enum EchoMode {
+    On,
+    Off,
+}
+

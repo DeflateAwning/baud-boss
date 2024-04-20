@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use crate::app::{App, CurrentScreen, MainScreenActiveRegion};
+use crate::app::{App, CurrentScreen, MainScreenActiveRegion, IncomingDataType};
 use crate::tui_list_state_tracker::ListStateTracker;
 
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
@@ -197,6 +197,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             ])
             .split(size);
 
+            frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
+
             let main_title_text = format!("Port '{}' @ {} baud", app.selected_serial_port.clone().unwrap_or_default(), app.app_config.baud_rate.unwrap_or_default());
             // let paragraph = Paragraph::new(Text::raw(&app.main_incoming_serial_data))
             //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
@@ -204,15 +206,37 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
             let was_incoming_data_scroll_at_bottom: bool = false; // TODO: figure this out based on sizing // app.main_screen_vertical_scroll_state.is_at_bottom();
 
-            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data.lines().map(|line| line.to_string()).collect();
+            // FIXME: START HERE
+            // need to convert these to Lines, and also get the metadata for the longest line
+            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data
+                .iter()
+                .map(|line| match line {
+                    IncomingDataType::SerialData(data) => data.clone(),
+                    IncomingDataType::EchoData(data) => data.clone(),
+                    IncomingDataType::ErrorData(data) => data.clone(),
+                }).collect();
             let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
-            let incoming_data_lines: Vec<Line> = incoming_data_lines_as_strs.iter().map(|line| Line::from(line.clone())).collect();
+            let incoming_data_lines: Vec<Line> = app.main_incoming_serial_data
+                .iter()
+                .map(|incoming_data_type| match incoming_data_type {
+                    IncomingDataType::SerialData(data) => {
+                        Line::from(data.clone())
+                            .style(Style::default()) //.fg(Color::Green))
+                    },
+                    IncomingDataType::EchoData(data) => {
+                        Line::from(data.clone())
+                            .style(Style::default().fg(Color::LightBlue))
+                    },
+                    IncomingDataType::ErrorData(data) => {
+                        Line::from(data.clone())
+                            .style(Style::default().fg(Color::Red))
+                    },
+                }).collect();
 
-            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state.content_length(incoming_data_lines.len());
-            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state.content_length(longest_line_length);
-            
-
-            frame.render_widget(send_input_paragraph, main_screen_chunks[0]);
+            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state
+                .content_length(incoming_data_lines.len());
+            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state
+                .content_length(longest_line_length);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
             // TODO: prevent scrolling if there's no need to scroll (currently lets you scroll the content fully off the screen)
@@ -220,7 +244,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             
             // TODO: add config option for wrapping text in the incoming_data block
         
-            let incoming_data_paragraph = Paragraph::new(incoming_data_lines.clone())
+            let incoming_data_paragraph = Paragraph::new(incoming_data_lines)
                 // .gray()
                 .block(Block::default().borders(Borders::ALL).title(main_title_text.bold()))
                 .scroll((
