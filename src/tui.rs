@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use crate::app::{App, CurrentScreen, MainScreenActiveRegion, IncomingDataType};
+use crate::app::{App, CurrentScreen, MainScreenActiveRegion, VisibleTransferData, ScrollPosition};
 use crate::tui_list_state_tracker::ListStateTracker;
 
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
@@ -204,38 +204,36 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             //     .block(Block::default().borders(Borders::ALL).title(main_title_text))
             //     .wrap(Wrap { trim: true });
 
-            let was_incoming_data_scroll_at_bottom: bool = false; // TODO: figure this out based on sizing // app.main_screen_vertical_scroll_state.is_at_bottom();
-
             // FIXME: START HERE
             // need to convert these to Lines, and also get the metadata for the longest line
-            let incoming_data_lines_as_strs: Vec<String> = app.main_incoming_serial_data
+            let incoming_data_lines_as_strs: Vec<String> = app.main_screen_visible_transfer_log
                 .iter()
                 .map(|line| match line {
-                    IncomingDataType::SerialData(data) => data.clone(),
-                    IncomingDataType::EchoData(data) => data.clone(),
-                    IncomingDataType::ErrorData(data) => data.clone(),
+                    VisibleTransferData::SerialData(data) => data.clone(),
+                    VisibleTransferData::EchoData(data) => data.clone(),
+                    VisibleTransferData::ErrorData(data) => data.clone(),
                 }).collect();
             let longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
-            let incoming_data_lines: Vec<Line> = app.main_incoming_serial_data
+            let incoming_data_lines: Vec<Line> = app.main_screen_visible_transfer_log
                 .iter()
                 .map(|incoming_data_type| match incoming_data_type {
-                    IncomingDataType::SerialData(data) => {
+                    VisibleTransferData::SerialData(data) => {
                         Line::from(data.clone())
                             .style(Style::default()) //.fg(Color::Green))
                     },
-                    IncomingDataType::EchoData(data) => {
+                    VisibleTransferData::EchoData(data) => {
                         Line::from(data.clone())
                             .style(Style::default().fg(Color::LightBlue))
                     },
-                    IncomingDataType::ErrorData(data) => {
+                    VisibleTransferData::ErrorData(data) => {
                         Line::from(data.clone())
                             .style(Style::default().fg(Color::Red))
                     },
                 }).collect();
 
-            app.main_screen_vertical_scroll_state = app.main_screen_vertical_scroll_state
+            app.main_screen_vert_scroll_state = app.main_screen_vert_scroll_state
                 .content_length(incoming_data_lines.len());
-            app.main_screen_horizontal_scroll_state = app.main_screen_horizontal_scroll_state
+            app.main_screen_horiz_scroll_state = app.main_screen_horiz_scroll_state
                 .content_length(longest_line_length);
 
             // Scrollbar Rendering Examples: https://github.com/ratatui-org/ratatui/blob/main/examples/scrollbar.rs
@@ -248,8 +246,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 // .gray()
                 .block(Block::default().borders(Borders::ALL).title(main_title_text.bold()))
                 .scroll((
-                    app.main_screen_vertical_scroll_val as u16,
-                    app.main_screen_horizontal_scroll_val as u16));
+                    app.main_screen_vert_scroll_val as u16,
+                    app.main_screen_horiz_scroll_val as u16));
 
             // TODO: refactor this clamping into a function, and try to apply it at the keyhandler level remove the jitter/vibrate
             // Right before rendering, perform a check on the vertical scroll position.
@@ -257,20 +255,27 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             let incoming_data_paragraph_width = size.width - 2; // subtract 2 for the borders
             let incoming_data_paragraph_lines_count = incoming_data_paragraph.line_count(incoming_data_paragraph_width);
             let incoming_data_viewport_height: usize = main_screen_chunks[1].height as usize - 2; // subtract 2 for borders
-            if (app.main_screen_vertical_scroll_val + incoming_data_viewport_height) > incoming_data_paragraph_lines_count {
-                app.main_screen_vertical_scroll_val = (
-                    (incoming_data_paragraph_lines_count as i64)
-                        - (incoming_data_viewport_height as i64)
-                        + 1 // show an empty line at the bottom, why not
-                    ).max(0) as usize;
+            let max_vertical_scroll_val = (
+                (incoming_data_paragraph_lines_count as i64)
+                    - (incoming_data_viewport_height as i64)
+                    + 1 // show an empty line at the bottom, why not
+                ).max(0) as usize;
+            if (app.main_screen_vert_scroll_val + incoming_data_viewport_height) > incoming_data_paragraph_lines_count {
+                // do the clamp to the bottom/end of the scroll region
+                app.main_screen_vert_scroll_pos = ScrollPosition::PinnedAtEnd;
+                app.main_screen_vert_scroll_val = max_vertical_scroll_val;
+                // app.main_screen_vert_scroll_state.last(); // TODO: maybe we should use this thing instead? Idk
             } // FIXME: it vibrates when it's at the bottom and you're typing in the input box
+            if app.main_screen_vert_scroll_pos == ScrollPosition::PinnedAtEnd {
+                app.main_screen_vert_scroll_val = max_vertical_scroll_val;
+            }
 
             // Right before rendering, perform a check on the horizontal scroll position.
             // Clamp the value so the last character is at the right of the block.
             let incoming_data_paragraph_longest_line_length = incoming_data_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
             let incoming_data_viewport_width: usize = main_screen_chunks[1].width as usize - 2; // subtract 2 for borders
-            if (app.main_screen_horizontal_scroll_val + incoming_data_viewport_width) > incoming_data_paragraph_longest_line_length {
-                app.main_screen_horizontal_scroll_val = (
+            if (app.main_screen_horiz_scroll_val + incoming_data_viewport_width) > incoming_data_paragraph_longest_line_length {
+                app.main_screen_horiz_scroll_val = (
                     (incoming_data_paragraph_longest_line_length as i64)
                         - (incoming_data_viewport_width as i64)
                         + 1 // show an empty col at the right, why not
@@ -278,10 +283,10 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             } // FIXME: it vibrates when it's at the right and you're typing in the input box
 
             // create the scrollbar state
-            app.main_screen_vertical_scroll_state =
-                app.main_screen_vertical_scroll_state.position(app.main_screen_vertical_scroll_val);
-            app.main_screen_horizontal_scroll_state =
-                app.main_screen_horizontal_scroll_state.position(app.main_screen_horizontal_scroll_val);
+            app.main_screen_vert_scroll_state =
+                app.main_screen_vert_scroll_state.position(app.main_screen_vert_scroll_val);
+            app.main_screen_horiz_scroll_state =
+                app.main_screen_horiz_scroll_state.position(app.main_screen_horiz_scroll_val);
 
             frame.render_widget(incoming_data_paragraph, main_screen_chunks[1]);
             frame.render_stateful_widget(
@@ -297,7 +302,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     .hide_when_not_scrollable(true)
                     .include_overscroll(false), // TOOD: check veritcal thumb symbol
                 main_screen_chunks[1],
-                &mut app.main_screen_vertical_scroll_state,
+                &mut app.main_screen_vert_scroll_state,
             );
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::HorizontalBottom)
@@ -315,13 +320,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                     vertical: 0,
                     horizontal: 1,
                 }),
-                &mut app.main_screen_horizontal_scroll_state,
+                &mut app.main_screen_horiz_scroll_state,
             );
-
-            // scroll to the new bottom, if we're already near the bottom
-            if was_incoming_data_scroll_at_bottom {
-                app.main_screen_vertical_scroll_state.last();
-            }
 
             // TODO: update keybinding coloring, update based on which screen is active
             let help_paragraph = Paragraph::new("Quit: Ctrl+] or Ctrl+C | Menu: Ctrl+T | Type to prep data | Enter to send")

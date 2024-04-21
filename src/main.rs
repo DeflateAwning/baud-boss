@@ -3,7 +3,7 @@ mod tui;
 mod tui_list_state_tracker;
 mod serial;
 
-use app::{App, AppConfig, CurrentScreen, MainScreenActiveRegion, EchoMode};
+use app::{App, AppConfig, CurrentScreen, EchoMode, MainScreenActiveRegion, ScrollPosition};
 use tui::ui;
 use serial::bind_serial_port;
 
@@ -486,6 +486,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
             match key.code {
                 KeyCode::Esc => {
                     app.main_screen_active_region = MainScreenActiveRegion::Input;
+                    // TODO: see if it feels right to actually jump to bottom if it's not already at the bottom here
                 }
 
                 // TODO: change scroll bindings
@@ -495,52 +496,62 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                 
                 // Scroll array bindings
                 KeyCode::Char('j') | KeyCode::Down => {
-                    app.main_screen_vertical_scroll_val = 
-                        app.main_screen_vertical_scroll_val.saturating_add(1);
+                    app.main_screen_vert_scroll_val = 
+                        app.main_screen_vert_scroll_val.saturating_add(1);
+
+                    app.main_screen_vert_scroll_pos = ScrollPosition::FinitePosition;
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
-                    app.main_screen_vertical_scroll_val = 
-                        app.main_screen_vertical_scroll_val.saturating_sub(1);
+                    app.main_screen_vert_scroll_val = 
+                        app.main_screen_vert_scroll_val.saturating_sub(1);
+
+                    app.main_screen_vert_scroll_pos = ScrollPosition::FinitePosition;
                 }
                 KeyCode::Char('h') | KeyCode::Left => {
-                    app.main_screen_horizontal_scroll_val = 
-                        app.main_screen_horizontal_scroll_val.saturating_sub(1);
+                    app.main_screen_horiz_scroll_val = 
+                        app.main_screen_horiz_scroll_val.saturating_sub(1);
                 }
                 KeyCode::Char('l') | KeyCode::Right => {
-                    app.main_screen_horizontal_scroll_val = 
-                        app.main_screen_horizontal_scroll_val.saturating_add(1);
+                    app.main_screen_horiz_scroll_val = 
+                        app.main_screen_horiz_scroll_val.saturating_add(1);
                 }
                 
                 KeyCode::Home => {
-                    app.main_screen_horizontal_scroll_val = 0;
+                    app.main_screen_horiz_scroll_val = 0;
                 }
                 KeyCode::End => {
-                    app.main_screen_horizontal_scroll_val = u32::MAX as usize;
+                    app.main_screen_horiz_scroll_val = u32::MAX as usize;
                 }
 
                 KeyCode::PageUp => {
                     if key.modifiers == KeyModifiers::CONTROL {
-                        app.main_screen_vertical_scroll_val = 0;
+                        app.main_screen_vert_scroll_val = 0;
+                        app.main_screen_vert_scroll_pos = ScrollPosition::FinitePosition;
                     }
                     else {
-                        app.main_screen_vertical_scroll_val = 
-                            app.main_screen_vertical_scroll_val.saturating_sub(10);
+                        app.main_screen_vert_scroll_val = 
+                            app.main_screen_vert_scroll_val.saturating_sub(10);
+                        
+                        app.main_screen_vert_scroll_pos = ScrollPosition::FinitePosition;
                     }
                 }
                 KeyCode::PageDown => {
                     if key.modifiers == KeyModifiers::CONTROL {
-                        // FIXME: haha this isn't very good, but it works
-                        app.main_screen_vertical_scroll_val = 0xFFF
+                        app.main_screen_vert_scroll_pos = ScrollPosition::PinnedAtEnd;
+                        // This way isn't very good, but it worked, so leaving it here anyway
+                        // app.main_screen_vertical_scroll_val = 0xFFF
                     }
                     else {
-                        app.main_screen_vertical_scroll_val = 
-                            app.main_screen_vertical_scroll_val.saturating_add(10);
+                        app.main_screen_vert_scroll_val = 
+                            app.main_screen_vert_scroll_val.saturating_add(10);
+                        app.main_screen_vert_scroll_pos = ScrollPosition::FinitePosition;
                     }
                 }
 
 
                 KeyCode::Enter => {
                     // TODO: send the data
+                    // FIXME: confirm this can be removed; I think it can
                 }
                 _ => {}
             }

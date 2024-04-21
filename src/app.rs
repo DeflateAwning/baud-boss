@@ -27,15 +27,16 @@ pub struct App {
     pub main_input_send_history_index: Option<usize>,
     pub main_input_typing_in_progress_but_not_sent: Option<String>, // so that if you look through the send history, you can still send the current in-progress message
     pub main_input_cursor_position: Option<usize>,
-    pub main_incoming_serial_data: Vec<IncomingDataType>,
+    pub main_screen_visible_transfer_log: Vec<VisibleTransferData>,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
 
     pub main_screen_active_region: MainScreenActiveRegion,
-    pub main_screen_vertical_scroll_state: ScrollbarState,
-    pub main_screen_horizontal_scroll_state: ScrollbarState,
-    pub main_screen_vertical_scroll_val: usize,
-    pub main_screen_horizontal_scroll_val: usize,
+    pub main_screen_vert_scroll_state: ScrollbarState,
+    pub main_screen_horiz_scroll_state: ScrollbarState,
+    pub main_screen_vert_scroll_val: usize,
+    pub main_screen_horiz_scroll_val: usize,
+    pub main_screen_vert_scroll_pos: ScrollPosition,
 }
 
 impl App {
@@ -55,21 +56,22 @@ impl App {
             main_input_send_history_index: None,
             main_input_typing_in_progress_but_not_sent: None,
             main_input_cursor_position: None,
-            main_incoming_serial_data: Vec::new(),
+            main_screen_visible_transfer_log: Vec::new(),
 
             bound_serial_port: None,
 
             main_screen_active_region: MainScreenActiveRegion::Input,
-            main_screen_vertical_scroll_state: ScrollbarState::default(),
-            main_screen_horizontal_scroll_state: ScrollbarState::default(),
-            main_screen_vertical_scroll_val: 0,
-            main_screen_horizontal_scroll_val: 0,
+            main_screen_vert_scroll_state: ScrollbarState::default(),
+            main_screen_horiz_scroll_state: ScrollbarState::default(),
+            main_screen_vert_scroll_val: 0,
+            main_screen_horiz_scroll_val: 0,
+            main_screen_vert_scroll_pos: ScrollPosition::PinnedAtEnd,
         }
     }
     
     pub fn add_new_incoming_serial_data(&mut self, new_data: Vec<u8>) {
-        self.main_incoming_serial_data.push(
-            IncomingDataType::SerialData(
+        self.main_screen_visible_transfer_log.push(
+            VisibleTransferData::SerialData(
                 // FIXME: improve support for non-UTF-8 data
                 String::from_utf8(new_data).expect("Incoming serial data should be UTF-8, for now")
             )
@@ -77,29 +79,35 @@ impl App {
     }
 
     pub fn add_new_incoming_echo_data(&mut self, new_data: Vec<u8>) {
-        self.main_incoming_serial_data.push(
-            IncomingDataType::EchoData(
+        self.main_screen_visible_transfer_log.push(
+            VisibleTransferData::EchoData(
                 // TODO: remove clone one we're done with debugging
                 String::from_utf8(new_data.clone()).expect("Data to send should be UTF-8, for now")
             )
         );
         println!("add_new_incoming_echo_data: new_len={}, new_data.len()={}, {:?}",
-            self.main_incoming_serial_data.len(), new_data.len(), new_data);
+            self.main_screen_visible_transfer_log.len(), new_data.len(), new_data);
     }
 
     pub fn add_new_incoming_error_data(&mut self, new_data: String) {
         println!("add_new_incoming_error_data: {}", new_data);
-        self.main_incoming_serial_data.push(
-            IncomingDataType::ErrorData(new_data)
+        self.main_screen_visible_transfer_log.push(
+            VisibleTransferData::ErrorData(new_data)
         );
     }
 }
 
-pub enum IncomingDataType {
+pub enum VisibleTransferData {
     SerialData(String),
     EchoData(String),
     ErrorData(String),
     // TODO: maybe other
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ScrollPosition {
+    FinitePosition,
+    PinnedAtEnd,
 }
 
 pub struct AppConfig {
