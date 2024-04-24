@@ -17,9 +17,9 @@ crossterm = "0.27.0"
 
 [dependencies.ratatui]
 # version = "0.26.2"
-# git = "https://github.com/DeflateAwning/ratatui.git"
+git = "https://github.com/DeflateAwning/ratatui.git"
 # branch = "da-scrollbar-is_at_bottom"
 
-git = "https://github.com/EdJoPaTo/ratatui.git"
+# git = "https://github.com/EdJoPaTo/ratatui.git"
 branch = "scrollbar-overscroll"
 features = ["unstable-rendered-line-info"]

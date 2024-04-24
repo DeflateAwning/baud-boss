@@ -72,7 +72,7 @@ fn run_app<B: Backend>(
     for i in 0_i32..=120_i32 {
         let fake_data = format!("Fake Incoming Data, line {}/120: {}\n",
             i, ".".repeat((100_i32-i).abs() as usize));
-        app.add_new_incoming_serial_data(fake_data.into_bytes());
+        app.add_rxd_serial_data_to_transfer_log(fake_data.into_bytes());
     }
 
     loop {
@@ -108,7 +108,7 @@ fn run_app<B: Backend>(
                         }
                     }
                     Err(e) => {
-                        app.add_new_incoming_error_data(format!("Error checking bytes to read: {}", e));
+                        app.add_error_to_transfer_log(format!("Error checking bytes to read: {}", e));
                     }
                 }
             }
@@ -131,11 +131,11 @@ fn app_handle_incoming_serial_data(app: &mut App) -> () {
                 let data = &serial_buf[..bytes_read_count];
                 match std::str::from_utf8(data) {
                     Ok(data_str) => {
-                        app.add_new_incoming_serial_data(data_str.to_string().into_bytes());
+                        app.add_rxd_serial_data_to_transfer_log(data_str.to_string().into_bytes());
                     }
                     Err(_) => {
                         // FIXME: still show the data somehow (hex or similar)
-                        app.add_new_incoming_error_data(
+                        app.add_error_to_transfer_log(
                             format!("Error converting incoming data to UTF-8"));
                     }
                 }
@@ -148,7 +148,7 @@ fn app_handle_incoming_serial_data(app: &mut App) -> () {
             // do nothing
         }
         Err(e) => {
-            app.add_new_incoming_error_data(
+            app.add_error_to_transfer_log(
                 format!("Error reading from serial port: {}", e));
         }
     }
@@ -455,7 +455,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                                     match app.app_config.echo_mode {
                                         EchoMode::On => {
                                             // TODO: show newline chars well
-                                            app.add_new_incoming_echo_data(
+                                            app.add_echo_to_transfer_log(
                                                 app.main_input.clone().into_bytes());
                                         }
                                         EchoMode::Off => {}
@@ -523,6 +523,7 @@ fn app_handle_keypresses_for_main_screen(app: &mut App, key: KeyEvent) -> () {
                     app.main_screen_horiz_scroll_val = u32::MAX as usize;
                 }
 
+                // TODO: add these PageUp/PageDown handlers to the ActiveRegion::Input as well
                 KeyCode::PageUp => {
                     if key.modifiers == KeyModifiers::CONTROL {
                         app.main_screen_vert_scroll_val = 0;

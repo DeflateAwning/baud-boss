@@ -27,7 +27,7 @@ pub struct App {
     pub main_input_send_history_index: Option<usize>,
     pub main_input_typing_in_progress_but_not_sent: Option<String>, // so that if you look through the send history, you can still send the current in-progress message
     pub main_input_cursor_position: Option<usize>,
-    pub main_screen_visible_transfer_log: Vec<VisibleTransferData>,
+    pub main_screen_transfer_log: Vec<VisibleTransferData>,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
 
@@ -56,7 +56,7 @@ impl App {
             main_input_send_history_index: None,
             main_input_typing_in_progress_but_not_sent: None,
             main_input_cursor_position: None,
-            main_screen_visible_transfer_log: Vec::new(),
+            main_screen_transfer_log: Vec::new(),
 
             bound_serial_port: None,
 
@@ -69,8 +69,8 @@ impl App {
         }
     }
     
-    pub fn add_new_incoming_serial_data(&mut self, new_data: Vec<u8>) {
-        self.main_screen_visible_transfer_log.push(
+    pub fn add_rxd_serial_data_to_transfer_log(&mut self, new_data: Vec<u8>) {
+        self.main_screen_transfer_log.push(
             VisibleTransferData::SerialData(
                 // FIXME: improve support for non-UTF-8 data
                 String::from_utf8(new_data).expect("Incoming serial data should be UTF-8, for now")
@@ -78,20 +78,17 @@ impl App {
         );
     }
 
-    pub fn add_new_incoming_echo_data(&mut self, new_data: Vec<u8>) {
-        self.main_screen_visible_transfer_log.push(
+    pub fn add_echo_to_transfer_log(&mut self, new_data: Vec<u8>) {
+        self.main_screen_transfer_log.push(
             VisibleTransferData::EchoData(
                 // TODO: remove clone one we're done with debugging
                 String::from_utf8(new_data.clone()).expect("Data to send should be UTF-8, for now")
             )
         );
-        println!("add_new_incoming_echo_data: new_len={}, new_data.len()={}, {:?}",
-            self.main_screen_visible_transfer_log.len(), new_data.len(), new_data);
     }
 
-    pub fn add_new_incoming_error_data(&mut self, new_data: String) {
-        println!("add_new_incoming_error_data: {}", new_data);
-        self.main_screen_visible_transfer_log.push(
+    pub fn add_error_to_transfer_log(&mut self, new_data: String) {
+        self.main_screen_transfer_log.push(
             VisibleTransferData::ErrorData(new_data)
         );
     }
