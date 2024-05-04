@@ -1,6 +1,6 @@
-use std::cmp::{max, min};
+use std::cmp::min;
 
-use crate::app::{App, CurrentScreen, MainScreenActiveRegion, VisibleTransferData, ScrollPosition};
+use crate::app::{App, CurrentScreen, MainScreenActiveRegion, TransferLogType, ScrollPosition};
 use crate::tui_list_state_tracker::ListStateTracker;
 
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin};
@@ -11,7 +11,7 @@ use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use ratatui::widgets::{Block, Borders, Wrap};
 use ratatui::Frame;
-use ratatui::text::{Span};
+use ratatui::text::Span;
 
 // traits
 use ratatui::style::Stylize;
@@ -205,25 +205,21 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             // need to convert these to Lines, and also get the metadata for the longest line
             let transfer_log_lines_as_strs: Vec<String> = app.main_screen_transfer_log
                 .iter()
-                .map(|line| match line {
-                    VisibleTransferData::SerialData(data) => data.clone(),
-                    VisibleTransferData::EchoData(data) => data.clone(),
-                    VisibleTransferData::ErrorData(data) => data.clone(),
-                }).collect();
+                .map(|transfer_log_entry| transfer_log_entry.get_data_as_string()).collect();
             let longest_line_length = transfer_log_lines_as_strs.iter().map(|line| line.len()).max().unwrap_or(0);
             let transfer_log_lines: Vec<Line> = app.main_screen_transfer_log
                 .iter()
-                .map(|incoming_data_type| match incoming_data_type {
-                    VisibleTransferData::SerialData(data) => {
-                        Line::from(data.clone())
+                .map(|transfer_log_entry| match transfer_log_entry.log_type {
+                    TransferLogType::SerialData => {
+                        Line::from(transfer_log_entry.get_data_as_string())
                             .style(Style::default()) //.fg(Color::Green))
                     },
-                    VisibleTransferData::EchoData(data) => {
-                        Line::from(data.clone())
+                    TransferLogType::EchoData => {
+                        Line::from(transfer_log_entry.get_data_as_string())
                             .style(Style::default().fg(Color::LightBlue))
                     },
-                    VisibleTransferData::ErrorData(data) => {
-                        Line::from(data.clone())
+                    TransferLogType::ErrorData => {
+                        Line::from(transfer_log_entry.get_data_as_string())
                             .style(Style::default().fg(Color::Red))
                     },
                 }).collect();

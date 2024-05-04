@@ -1,6 +1,7 @@
 use ratatui::widgets::{ListState, ScrollbarState};
 use crate::tui_list_state_tracker::ListStateTracker;
 
+
 // TODO: rename to AppScreen
 pub enum CurrentScreen {
     PickSerialPort,
@@ -27,7 +28,7 @@ pub struct App {
     pub main_input_send_history_index: Option<usize>,
     pub main_input_typing_in_progress_but_not_sent: Option<String>, // so that if you look through the send history, you can still send the current in-progress message
     pub main_input_cursor_position: Option<usize>,
-    pub main_screen_transfer_log: Vec<VisibleTransferData>,
+    pub main_screen_transfer_log: Vec<TransferLogEntry>,
 
     pub bound_serial_port: Option<Box<serialport5::SerialPort>>,
 
@@ -70,34 +71,129 @@ impl App {
     }
     
     pub fn add_rxd_serial_data_to_transfer_log(&mut self, new_data: Vec<u8>) {
-        self.main_screen_transfer_log.push(
-            VisibleTransferData::SerialData(
-                // FIXME: improve support for non-UTF-8 data
-                String::from_utf8(new_data).expect("Incoming serial data should be UTF-8, for now")
-            )
-        );
+        // If the last element in the transfer log is a SerialData. 
+        // Otherwise, add a new SerialData element.
+
+        // split by newline, loop through, add each to the transfer log (either append to last element or add new element)
+
+        // Loop through each chunk and process it
+        let delimiter: u8 = 0x0A; // newline // TODO: read from config, or something
+        for (chunk_num, chunk) in new_data.split(|&x| x == delimiter).enumerate() {
+            let is_chunk_final = chunk.last() == Some(&delimiter);
+            
+            // This chunk_num check is an optimization to prevent looking into the last
+            // element of the transfer log if it's not necessary.
+            if chunk_num == 0 {
+                if let Some(last_elem) = self.main_screen_transfer_log.last_mut() {
+                    match last_elem.log_type {
+                        TransferLogType::SerialData => {
+                            match last_elem.is_final {
+                                true => {
+                                    self.main_screen_transfer_log.push(
+                                        TransferLogEntry::new(
+                                            chunk.to_vec(),
+                                            TransferLogType::SerialData,
+                                            is_chunk_final
+                                        )
+                                    );
+                                }
+                                false => {
+                                    last_elem.data_as_bytes.extend(chunk);
+                                    last_elem.is_final = is_chunk_final;
+                                }
+                            }
+                        }
+                        _ => {
+
+                            self.main_screen_transfer_log.push(
+                                TransferLogEntry::new(
+                                    chunk.to_vec(),
+                                    TransferLogType::SerialData,
+                                    is_chunk_final
+                                )
+                            );
+                        }
+                    }
+                }
+            } else {
+                self.main_screen_transfer_log.push(
+                    TransferLogEntry::new(
+                        chunk.to_vec(),
+                        TransferLogType::SerialData,
+                        is_chunk_final
+                    )
+                );
+            }
+        }
     }
 
     pub fn add_echo_to_transfer_log(&mut self, new_data: Vec<u8>) {
+        if let Some(last_elem) = self.main_screen_transfer_log.last_mut() {
+            last_elem.is_final = true;
+        }
         self.main_screen_transfer_log.push(
-            VisibleTransferData::EchoData(
-                // TODO: remove clone one we're done with debugging
-                String::from_utf8(new_data.clone()).expect("Data to send should be UTF-8, for now")
+            TransferLogEntry::new(
+                new_data,
+                TransferLogType::EchoData,
+                true
             )
         );
     }
 
     pub fn add_error_to_transfer_log(&mut self, new_data: String) {
+        if let Some(last_elem) = self.main_screen_transfer_log.last_mut() {
+            last_elem.is_final = true;
+        }
         self.main_screen_transfer_log.push(
-            VisibleTransferData::ErrorData(new_data)
+            TransferLogEntry::new(
+                new_data.into_bytes(),
+                TransferLogType::ErrorData,
+                true
+            )
         );
     }
 }
 
-pub enum VisibleTransferData {
-    SerialData(String),
-    EchoData(String),
-    ErrorData(String),
+pub struct TransferLogEntry {
+    pub data_as_bytes: Vec<u8>,
+    pub log_type: TransferLogType,
+    pub timestamp: chrono::DateTime<chrono::Local>,
+    
+    /// Whether this is the final entry in the log, or if it can still be written to.
+    pub is_final: bool,
+}
+
+impl TransferLogEntry {
+    pub fn new(data: Vec<u8>, log_type: TransferLogType, is_final: bool) -> Self {
+        Self {
+            data_as_bytes: data,
+            log_type,
+            timestamp: chrono::Local::now(),
+            is_final,
+        }
+    }
+
+    pub fn get_data_as_string(&self) -> String {
+        let string_val = match self.log_type {
+            TransferLogType::SerialData => {
+                String::from_utf8(self.data_as_bytes.clone()).expect("Data should be UTF-8, for now")
+            }
+            TransferLogType::EchoData => {
+                String::from_utf8(self.data_as_bytes.clone()).expect("Data should be UTF-8, for now")
+            }
+            TransferLogType::ErrorData => {
+                String::from_utf8(self.data_as_bytes.clone()).expect("Error messages should be UTF-8")
+            }
+        }.trim_end().to_string();
+        
+        string_val
+    }
+}
+
+pub enum TransferLogType {
+    SerialData,
+    EchoData,
+    ErrorData,
     // TODO: maybe other
 }
 

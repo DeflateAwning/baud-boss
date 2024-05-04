@@ -69,11 +69,11 @@ fn run_app<B: Backend>(
     // TODO: make this configurable
     // DEBUG
     // Fill the display with a bunch of fake data
-    for i in 0_i32..=120_i32 {
-        let fake_data = format!("Fake Incoming Data, line {}/120: {}\n",
-            i, ".".repeat((100_i32-i).abs() as usize));
-        app.add_rxd_serial_data_to_transfer_log(fake_data.into_bytes());
-    }
+    // for i in 0_i32..=120_i32 {
+    //     let fake_data = format!("Fake Incoming Data, line {}/120: {}\n",
+    //         i, ".".repeat((100_i32-i).abs() as usize));
+    //     app.add_rxd_serial_data_to_transfer_log(fake_data.into_bytes());
+    // }
 
     loop {
         terminal.draw(|f| ui(f, app))?;
